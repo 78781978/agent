@@ -1,0 +1,13 @@
+﻿# Poprawka: user_profiles RLS
+
+Wgraj do GitHuba plik:
+
+- app/api/profile/route.ts
+
+Plik SQL jest w folderze:
+
+- supabase/migrations/202607210001_login_privacy.sql
+
+Przed testem w Supabase SQL Editor uruchom funkcje `upsert_current_user_profile` z instrukcji od Codexa.
+
+Po wgraniu pliku route.ts do GitHuba zrob Redeploy w Vercel.

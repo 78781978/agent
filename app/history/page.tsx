@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
+import { AppNav } from "../../components/AppNav";
 import { useEffect, useMemo, useState } from "react";
 
 type Conversation = { id: string; title: string | null; updated_at: string; messageCount: number; preview: string };
@@ -53,7 +54,7 @@ export default function HistoryPage() {
 
   return (
     <main className="history-shell">
-      <nav className="top-nav"><Link href="/chat">Chat</Link><Link className="active" href="/history">Historia</Link></nav>
+      <AppNav active="/history" />
       <header className="history-header"><div><p className="eyebrow">Pamięć agenta</p><h1>📜 Historia rozmów</h1><p>Wszystkie Twoje rozmowy z agentem</p></div><Link className="history-primary" href="/chat">+ Rozpocznij rozmowę</Link></header>
       <input className="history-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Szukaj w rozmowach..." />
       {notice && <div className="history-toast">{notice}</div>}
@@ -69,3 +70,4 @@ export default function HistoryPage() {
     </main>
   );
 }
+

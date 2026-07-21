@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
+import { AppNav } from "../../components/AppNav";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useChat } from "@ai-sdk/react";
@@ -188,25 +189,12 @@ export default function FormatPage() {
   return (
     <main className="chat-shell">
       <section className="chat-card wide" aria-label="Formatowanie">
-        <nav className="top-nav" aria-label="Nawigacja">
-          <Link href="/agent">Agent</Link>
-          <Link href="/">🤖 Chat</Link>
-          <Link href="/react">🔄 ReAct</Link>
-          <Link href="/think">🧠 Myślenie</Link>
-          <Link href="/fewshot">📚 Słownik</Link>
-          <Link className="active" href="/format">
-            📐 Formater
-          </Link>
-          <Link href="/search">Szukaj</Link>
-          <Link href="/generate">Grafiki</Link>
-          <Link href="/wash">🚗 Myjnia</Link>
-          <Link href="/wash-site">🌐 Strona myjni</Link>
-        </nav>
+        <AppNav active="/format" />
 
         <header className="chat-header">
           <div>
             <p className="eyebrow">Lekcja 2 · Warsztat 4</p>
-            <h1>📐 Formatowanie</h1>
+            <h1>Formatowanie</h1>
             <p className="subtitle">
               Agent odpowiada w tabeli, liście, porównaniu - na żądanie.
             </p>
@@ -244,7 +232,7 @@ export default function FormatPage() {
             >
               {message.role === "assistant" && (
                 <div className="badge-row">
-                  <span className="model-badge pro">📐 formater</span>
+                  <span className="model-badge pro">FORM</span>
                   <span className="badge expert">markdown</span>
                 </div>
               )}
@@ -257,7 +245,7 @@ export default function FormatPage() {
           {isLoading && (
             <article className="message assistant">
               <div className="badge-row">
-                <span className="model-badge pro">📐 formater</span>
+                <span className="model-badge pro">FORM</span>
               </div>
               <div className="bubble thinking">Układam odpowiedź w formacie...</div>
             </article>
@@ -308,3 +296,6 @@ export default function FormatPage() {
     </main>
   );
 }
+
+
+

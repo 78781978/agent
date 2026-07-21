@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
+import { AppNav } from "../../components/AppNav";
 import { useEffect, useRef, useState } from "react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useChat } from "@ai-sdk/react";
@@ -52,20 +53,7 @@ export default function WashBookingPage() {
   return (
     <main className="chat-shell">
       <section className="chat-card" aria-label="Wash&Go Booking Agent">
-        <nav className="top-nav" aria-label="Nawigacja">
-          <Link href="/agent">Agent</Link>
-          <Link href="/">🤖 Chat</Link>
-          <Link href="/think">🧠 Myślenie</Link>
-          <Link href="/fewshot">📚 Słownik</Link>
-          <Link href="/format">📐 Formater</Link>
-          <Link href="/wash-site">🌐 Strona myjni</Link>
-          <Link className="active" href="/wash-booking">
-            🚗 Rezerwacja
-          </Link>
-          <Link href="/search">Szukaj</Link>
-          <Link href="/generate">Grafiki</Link>
-          <Link href="/wash">📈 Panel właściciela</Link>
-        </nav>
+        <AppNav active="/wash-booking" />
 
         <header className="chat-header">
           <div>
@@ -186,3 +174,4 @@ export default function WashBookingPage() {
     </main>
   );
 }
+

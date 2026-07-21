@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
+import { AppNav } from "../../components/AppNav";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useChat } from "@ai-sdk/react";
@@ -18,20 +19,20 @@ const modes: Array<{
   {
     id: "casual",
     label: "Casual",
-    icon: "đź’¬",
-    description: "krĂłtko, prosto i po ludzku",
+    icon: "💬",
+    description: "krótko, prosto i po ludzku",
   },
   {
     id: "expert",
     label: "Ekspert",
-    icon: "đźŽ“",
-    description: "analitycznie, formalnie i z rekomendacjÄ…",
+    icon: "🎓",
+    description: "analitycznie, formalnie i z rekomendacją",
   },
   {
     id: "creative",
     label: "Kreatywny",
-    icon: "đźŽ¨",
-    description: "nieszablonowo, z analogiami i inspiracjÄ…",
+    icon: "🎨",
+    description: "nieszablonowo, z analogiami i inspiracją",
   },
 ];
 
@@ -44,22 +45,22 @@ const models: Array<{
   {
     id: "flash",
     label: "Flash",
-    icon: "âšˇ",
-    description: "szybki model do codziennych pytaĹ„",
+    icon: "⚡",
+    description: "szybki model do codziennych pytań",
   },
   {
     id: "pro",
     label: "Pro",
-    icon: "đź§ ",
-    description: "zaawansowany model do zĹ‚oĹĽonych analiz",
+    icon: "🧠",
+    description: "zaawansowany model do złożonych analiz",
   },
 ];
 
 const sampleQuestions = [
-  "Jak zaplanowaÄ‡ pierwszÄ… automatyzacjÄ™ AI dla maĹ‚ego sklepu WooCommerce?",
-  "Jakie dane mogÄ™ bezpiecznie wysyĹ‚aÄ‡ do AI, a jakich nie powinnam?",
-  "Jak zbudowaÄ‡ prostego chatbota do obsĹ‚ugi pytaĹ„ klientĂłw?",
-  "PorĂłwnaj n8n, Make i Zapier dla poczÄ…tkujÄ…cej osoby.",
+  "Jak zaplanować pierwszą automatyzację AI dla małego sklepu WooCommerce?",
+  "Jakie dane mogę bezpiecznie wysyłać do AI, a jakich nie powinnam?",
+  "Jak zbudować prostego chatbota do obsługi pytań klientów?",
+  "Porównaj n8n, Make i Zapier dla początkującej osoby.",
 ];
 
 function messageText(message: UIMessage) {
@@ -72,7 +73,7 @@ function messageText(message: UIMessage) {
 function splitSourceLine(text: string) {
   const lines = text.split("\n");
   const sourceIndex = lines.findIndex((line) =>
-    /^đź“Ž\s*ĹąrĂłdĹ‚[oa]:/i.test(line.trim()),
+    /^📎\s*Źródł[oa]:/i.test(line.trim()),
   );
 
   if (sourceIndex === -1) {
@@ -81,7 +82,7 @@ function splitSourceLine(text: string) {
 
   return {
     body: lines.filter((_, index) => index !== sourceIndex).join("\n").trim(),
-    source: lines[sourceIndex].trim().replace(/^đź“Ž\s*/, ""),
+    source: lines[sourceIndex].trim().replace(/^📎\s*/, ""),
   };
 }
 
@@ -120,7 +121,7 @@ async function readJsonResponse(response: Response) {
   try {
     return JSON.parse(text);
   } catch {
-    throw new Error("Serwer zwrĂłciĹ‚ niepeĹ‚nÄ… odpowiedĹş. OdĹ›wieĹĽ stronÄ™ i sprĂłbuj ponownie.");
+    throw new Error("Serwer zwrócił niepełną odpowiedź. Odśwież stronę i spróbuj ponownie.");
   }
 }
 
@@ -228,7 +229,7 @@ export default function Home() {
     try {
       localStorage.setItem("vie_last_conversation_memory", memory);
     } catch {
-      // Lokalna pamiÄ™Ä‡ jest dodatkiem. JeĹ›li przeglÄ…darka jÄ… zablokuje, czat nadal dziaĹ‚a.
+      // Lokalna pamięć jest dodatkiem. Jeśli przeglądarka ją zablokuje, czat nadal działa.
     }
   }, [messages]);
 
@@ -239,7 +240,7 @@ export default function Home() {
         const selectedConversation = new URLSearchParams(window.location.search).get("conversationId");
         const response = await fetch(selectedConversation ? `/api/conversations?id=${encodeURIComponent(selectedConversation)}` : "/api/conversations");
         const data = await readJsonResponse(response);
-        if (!response.ok) throw new Error(data.error || "Nie udaĹ‚o siÄ™ wczytaÄ‡ historii.");
+        if (!response.ok) throw new Error(data.error || "Nie udało się wczytać historii.");
         if (!active) return;
         if (data.conversation) {
           const loadedMessages = data.messages as StoredMessage[];
@@ -258,7 +259,7 @@ export default function Home() {
           })));
         }
       } catch (loadError) {
-        if (active) setPersistenceError(loadError instanceof Error ? loadError.message : "BĹ‚Ä…d historii.");
+        if (active) setPersistenceError(loadError instanceof Error ? loadError.message : "Błąd historii.");
       } finally {
         if (active) setHistoryLoading(false);
       }
@@ -279,7 +280,7 @@ export default function Home() {
         setUserId(id);
         let response = await fetch(`/api/profile?userId=${encodeURIComponent(id)}`);
         let data = await readJsonResponse(response);
-        if (!response.ok) throw new Error(data.error || "Nie udaĹ‚o siÄ™ pobraÄ‡ profilu.");
+        if (!response.ok) throw new Error(data.error || "Nie udało się pobrać profilu.");
         if (!data.profile) {
           response = await fetch("/api/profile", {
             method: "POST",
@@ -287,14 +288,14 @@ export default function Home() {
             body: JSON.stringify({ userId: id }),
           });
           data = await readJsonResponse(response);
-          if (!response.ok) throw new Error(data.error || "Nie udaĹ‚o siÄ™ utworzyÄ‡ profilu.");
+          if (!response.ok) throw new Error(data.error || "Nie udało się utworzyć profilu.");
         }
         if (active) {
           setUserName(data.profile.name || "");
           setPreferences(data.profile.preferences || {});
         }
       } catch (profileError) {
-        if (active) setPersistenceError(profileError instanceof Error ? profileError.message : "BĹ‚Ä…d profilu.");
+        if (active) setPersistenceError(profileError instanceof Error ? profileError.message : "Błąd profilu.");
       } finally {
         if (active) setProfileLoading(false);
       }
@@ -311,22 +312,22 @@ export default function Home() {
       body: JSON.stringify({ userId, ...update }),
     });
     const data = await readJsonResponse(response);
-    if (!response.ok) throw new Error(data.error || "Nie udaĹ‚o siÄ™ zapisaÄ‡ profilu.");
+    if (!response.ok) throw new Error(data.error || "Nie udało się zapisać profilu.");
     setUserName(data.profile.name || "");
     setPreferences(data.profile.preferences || {});
   }
 
   function profileDetails(text: string) {
-    const nameMatch = text.match(/(?:mam na imi[eÄ™]|nazywam si[eÄ™]|jestem)\s+([a-zÄ…Ä‡Ä™Ĺ‚Ĺ„ĂłĹ›ĹşĹĽ-]+)/i);
-    const singleName = !userName && /^[a-zÄ…Ä‡Ä™Ĺ‚Ĺ„ĂłĹ›ĹşĹĽ-]{2,30}$/i.test(text.trim()) ? text.trim() : "";
-    const preferenceMatch = text.match(/lubi[eÄ™]\s+(.{2,80})/i);
-    const cityMatch = text.match(/mieszkam w\s+([a-zÄ…Ä‡Ä™Ĺ‚Ĺ„ĂłĹ›ĹşĹĽ -]{2,50})/i);
+    const nameMatch = text.match(/(?:mam na imi[eę]|nazywam si[eę]|jestem)\s+([a-ząćęłńóśźż-]+)/i);
+    const singleName = !userName && /^[a-ząćęłńóśźż-]{2,30}$/i.test(text.trim()) ? text.trim() : "";
+    const preferenceMatch = text.match(/lubi[eę]\s+(.{2,80})/i);
+    const cityMatch = text.match(/mieszkam w\s+([a-ząćęłńóśźż -]{2,50})/i);
     return {
       name: nameMatch?.[1] || singleName || undefined,
       preference: cityMatch
         ? { key: "miasto", value: cityMatch[1].trim() }
         : preferenceMatch
-          ? { key: "lubiÄ™", value: preferenceMatch[1].trim() }
+          ? { key: "lubię", value: preferenceMatch[1].trim() }
           : undefined,
     };
   }
@@ -338,7 +339,7 @@ export default function Home() {
       body: JSON.stringify({ title: title.slice(0, 50) }),
     });
     const data = await readJsonResponse(response);
-    if (!response.ok) throw new Error(data.error || "Nie udaĹ‚o siÄ™ utworzyÄ‡ rozmowy.");
+    if (!response.ok) throw new Error(data.error || "Nie udało się utworzyć rozmowy.");
     setConversationId(data.conversation.id);
     conversationIdRef.current = data.conversation.id;
     return data.conversation.id as string;
@@ -352,10 +353,10 @@ export default function Home() {
         body: JSON.stringify({ conversationId: id, role, content }),
       });
       const data = await readJsonResponse(response);
-      if (!response.ok) throw new Error(data.error || "Nie udaĹ‚o siÄ™ zapisaÄ‡ wiadomoĹ›ci.");
+      if (!response.ok) throw new Error(data.error || "Nie udało się zapisać wiadomości.");
       setPersistenceError("");
     } catch (saveError) {
-      setPersistenceError(saveError instanceof Error ? saveError.message : "BĹ‚Ä…d zapisu historii.");
+      setPersistenceError(saveError instanceof Error ? saveError.message : "Błąd zapisu historii.");
     }
   }
 
@@ -419,15 +420,15 @@ export default function Home() {
 
   function friendlyErrorMessage(message?: string) {
     if (!message || message === "An error occurred.") {
-      return "WystÄ…piĹ‚ chwilowy bĹ‚Ä…d poĹ‚Ä…czenia z modelem AI. Kliknij â€žSprĂłbuj ponownieâ€ť albo wyĹ›lij wiadomoĹ›Ä‡ jeszcze raz.";
+      return "Wystąpił chwilowy błąd połączenia z modelem AI. Kliknij „Spróbuj ponownie” albo wyślij wiadomość jeszcze raz.";
     }
 
     if (message.toLowerCase().includes("quota")) {
-      return "Model AI zgĹ‚asza limit lub problem z rozliczeniem API. SprawdĹş limit klucza albo uĹĽyj taĹ„szego modelu Flash.";
+      return "Model AI zgłasza limit lub problem z rozliczeniem API. Sprawdź limit klucza albo użyj tańszego modelu Flash.";
     }
 
     if (message.toLowerCase().includes("api key")) {
-      return "Aplikacja nie widzi poprawnego klucza API. SprawdĹş plik .env.local i uruchom serwer ponownie.";
+      return "Aplikacja nie widzi poprawnego klucza API. Sprawdź plik .env.local i uruchom serwer ponownie.";
     }
 
     return message;
@@ -436,7 +437,7 @@ export default function Home() {
   async function exportConversation() {
     const content = messages
       .map((message) => {
-        const author = message.role === "user" ? "UĹĽytkownik" : "Agent";
+        const author = message.role === "user" ? "Użytkownik" : "Agent";
         return `${author}: ${messageText(message)}`;
       })
       .join("\n\n");
@@ -464,7 +465,7 @@ export default function Home() {
     try {
       await createConversation();
     } catch (newConversationError) {
-      setPersistenceError(newConversationError instanceof Error ? newConversationError.message : "Nie udaĹ‚o siÄ™ utworzyÄ‡ rozmowy.");
+      setPersistenceError(newConversationError instanceof Error ? newConversationError.message : "Nie udało się utworzyć rozmowy.");
     }
   }
 
@@ -475,33 +476,18 @@ export default function Home() {
   return (
     <main className="chat-shell">
       <section className="chat-card" aria-label="Vie Agent AI">
-        <nav className="top-nav" aria-label="Nawigacja">
-          <Link href="/agent">Agent</Link>
-          <Link className="active" href="/chat">
-            đź¤– Chat
-          </Link>
-          <Link href="/react">đź”„ ReAct</Link>
-          <Link href="/travel">âśď¸Ź PodrĂłĹĽe</Link>
-          <Link href="/think">đź§  MyĹ›lenie</Link>
-          <Link href="/fewshot">đź“š SĹ‚ownik</Link>
-          <Link href="/format">đź“ Formater</Link>
-          <Link href="/search">Szukaj</Link>
-          <Link href="/history">đź“ś Historia</Link>
-          <Link href="/generate">Grafiki</Link>
-          <Link href="/wash">đźš— Myjnia</Link>
-          <Link href="/wash-site">đźŚ Strona myjni</Link>
-        </nav>
+        <AppNav active="/chat" />
 
         <header className="chat-header">
           <div>
             <p className="eyebrow">Warsztaty 1-4</p>
-            <h1>đź¤– Vie â€” ekspertka automatyzacji AI</h1>
+            <h1>🤖 Vie — ekspertka automatyzacji AI</h1>
             <p className="subtitle">
               Ekspert od automatyzacji AI, e-commerce, WordPress i WooCommerce.
               Zapytaj mnie o chatboty, procesy, API, n8n, Make i bezpieczne
-              wdroĹĽenia.
+              wdrożenia.
             </p>
-            <div className="sample-questions" aria-label="PrzykĹ‚adowe pytania">
+            <div className="sample-questions" aria-label="Przykładowe pytania">
               {sampleQuestions.map((question) => (
                 <button
                   key={question}
@@ -530,21 +516,21 @@ export default function Home() {
             onClick={() => setContextOpen((value) => !value)}
           >
             Kontekst rozmowy
-            <span>{contextOpen ? "Ukryj" : "PokaĹĽ"}</span>
+            <span>{contextOpen ? "Ukryj" : "Pokaż"}</span>
           </button>
 
           {contextOpen && (
             <div className="memory-content">
               <p>
-                WiadomoĹ›ci: <strong>{messages.length}</strong> | ~Tokeny:{" "}
+                Wiadomości: <strong>{messages.length}</strong> | ~Tokeny:{" "}
                 <strong>{tokenCount}</strong>
               </p>
               <div className="memory-actions">
                 <button type="button" onClick={startNewConversation}>
-                  đź—‘ Nowa rozmowa
+                  🗑 Nowa rozmowa
                 </button>
                 <button type="button" onClick={exportConversation}>
-                  đź“‹ Eksportuj rozmowÄ™
+                  📋 Eksportuj rozmowę
                 </button>
                 {copied && <span className="copied">Skopiowano!</span>}
               </div>
@@ -555,15 +541,15 @@ export default function Home() {
         <section className="messages" aria-live="polite">
           {!profileLoading && (
             <div className="empty-state" role="status">
-              <p>{userName ? `CzeĹ›Ä‡, ${userName}! MiĹ‚o CiÄ™ znowu widzieÄ‡.` : "CzeĹ›Ä‡! Jestem Vie. Nie znamy siÄ™ jeszcze â€” jak masz na imiÄ™?"}</p>
+              <p>{userName ? `Cześć, ${userName}! Miło Cię znowu widzieć.` : "Cześć! Jestem Vie. Nie znamy się jeszcze — jak masz na imię?"}</p>
             </div>
           )}
-          {historyLoading && <div className="empty-state" role="status"><p>WczytujÄ™ ostatniÄ… rozmowÄ™...</p></div>}
+          {historyLoading && <div className="empty-state" role="status"><p>Wczytuję ostatnią rozmowę...</p></div>}
           {!historyLoading && messages.length === 0 && (
             <div className="empty-state">
               <p>
-                CzeĹ›Ä‡, jestem Vie. Zapytaj mnie o automatyzacje AI,
-                WooCommerce, chatboty albo plan wdroĹĽenia dla maĹ‚ej firmy.
+                Cześć, jestem Vie. Zapytaj mnie o automatyzacje AI,
+                WooCommerce, chatboty albo plan wdrożenia dla małej firmy.
               </p>
             </div>
           )}
@@ -575,7 +561,7 @@ export default function Home() {
             <article
               className={`message ${message.role}`}
               key={message.id}
-              aria-label={message.role === "user" ? "UĹĽytkownik" : "Agent AI"}
+              aria-label={message.role === "user" ? "Użytkownik" : "Agent AI"}
             >
               {message.role === "assistant" &&
                 (() => {
@@ -608,7 +594,7 @@ export default function Home() {
               <span className={`badge ${mode}`}>
                 {activeMode.icon} {mode}
               </span>
-              <div className="bubble thinking">MyĹ›lÄ™...</div>
+              <div className="bubble thinking">Myślę...</div>
             </article>
           )}
 
@@ -621,7 +607,7 @@ export default function Home() {
             <div className="error-actions">
               {lastPrompt && (
                 <button type="button" onClick={retryLastPrompt}>
-                  SprĂłbuj ponownie
+                  Spróbuj ponownie
                 </button>
               )}
               <button type="button" onClick={clearError}>
@@ -666,7 +652,7 @@ export default function Home() {
 
         <form className="composer" onSubmit={handleSubmit}>
           <textarea
-            aria-label="WiadomoĹ›Ä‡ do agenta"
+            aria-label="Wiadomość do agenta"
             onChange={(event) => setInput(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) {
@@ -674,7 +660,7 @@ export default function Home() {
                 event.currentTarget.form?.requestSubmit();
               }
             }}
-            placeholder="Napisz wiadomoĹ›Ä‡..."
+            placeholder="Napisz wiadomość..."
             value={input}
           />
           {isLoading ? (
@@ -683,7 +669,7 @@ export default function Home() {
             </button>
           ) : (
             <button type="submit" disabled={isLoading || !input.trim()}>
-              WyĹ›lij
+              Wyślij
             </button>
           )}
         </form>
@@ -691,5 +677,8 @@ export default function Home() {
     </main>
   );
 }
+
+
+
 
 

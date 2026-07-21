@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
+import { AppNav } from "../../components/AppNav";
 import { useEffect, useMemo, useState } from "react";
 import { splitIntoChunks } from "../../lib/chunking";
 
@@ -172,15 +173,7 @@ export default function UploadKnowledgePage() {
   return (
     <main className="chat-shell">
       <section className="chat-card wide">
-        <nav className="top-nav" aria-label="Nawigacja">
-          <Link href="/">🏠 Dashboard</Link>
-          <Link href="/chat">💬 Chat Vie</Link>
-          <Link href="/agent">🤖 Agent</Link>
-          <Link className="active" href="/upload">
-            📚 Baza wiedzy
-          </Link>
-          <Link href="/knowledge">🗂️ Podgląd wiedzy</Link>
-        </nav>
+        <AppNav active="/upload" />
 
         <header className="chat-header">
           <div>
@@ -290,3 +283,4 @@ export default function UploadKnowledgePage() {
     </main>
   );
 }
+

@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
+import { AppNav } from "../../components/AppNav";
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useChat } from "@ai-sdk/react";
@@ -115,25 +116,12 @@ export default function SearchPage() {
   return (
     <main className="chat-shell">
       <section className="chat-card" aria-label="Agent z wyszukiwarka">
-        <nav className="top-nav" aria-label="Nawigacja">
-          <Link href="/agent">Agent</Link>
-          <Link href="/">🤖 Chat</Link>
-          <Link href="/react">🔄 ReAct</Link>
-          <Link href="/think">🧠 Myślenie</Link>
-          <Link href="/fewshot">📚 Słownik</Link>
-          <Link href="/format">📐 Formater</Link>
-          <Link className="active" href="/search">
-            🌐 Szukaj
-          </Link>
-          <Link href="/generate">Grafiki</Link>
-          <Link href="/wash">🚗 Myjnia</Link>
-          <Link href="/wash-site">🌐 Strona myjni</Link>
-        </nav>
+        <AppNav active="/search" />
 
         <header className="chat-header">
           <div>
             <p className="eyebrow">Lekcja 3 · Warsztat 1</p>
-            <h1>🌐 Agent z wyszukiwarką</h1>
+            <h1>Agent z wyszukiwarką</h1>
             <p className="subtitle">
               Przeszukuję prawdziwy internet i czytam strony. Podaj pytanie
               aktualne albo wklej link do strony, którą mam streścić.
@@ -172,7 +160,7 @@ export default function SearchPage() {
                 aria-label={message.role === "user" ? "Użytkownik" : "Agent AI"}
               >
                 {message.role === "assistant" && (
-                  <span className="badge expert">🌐 internet</span>
+                  <span className="badge expert">WEB</span>
                 )}
                 <div className="bubble search-bubble">{renderAnswer(messageText(message))}</div>
                 {sources.length > 0 && (
@@ -196,7 +184,7 @@ export default function SearchPage() {
 
           {isLoading && (
             <article className="message assistant">
-              <span className="badge expert">🌐 internet</span>
+              <span className="badge expert">WEB</span>
               <div className="bubble thinking">Szukam i sprawdzam źródła...</div>
             </article>
           )}
@@ -239,3 +227,6 @@ export default function SearchPage() {
     </main>
   );
 }
+
+
+

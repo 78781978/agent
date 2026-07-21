@@ -1,17 +1,18 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
+import { AppNav } from "../../components/AppNav";
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useChat } from "@ai-sdk/react";
 
 const tools = [
   { name: "Kalkulator", emoji: "🧮", key: "calculator" },
-  { name: "Data i czas", emoji: "🕐", key: "currentDateTime" },
-  { name: "Google Search", emoji: "🌐", key: "webSearch" },
+  { name: "Data i czas", emoji: "CZ", key: "currentDateTime" },
+  { name: "Google Search", emoji: "WEB", key: "webSearch" },
   { name: "Czytanie stron", emoji: "📄", key: "readWebPage" },
   { name: "Generowanie obrazów", emoji: "🎨", key: "generateImage" },
-  { name: "Analiza obrazów", emoji: "👁️", key: "vision" },
+  { name: "Analiza obrazów", emoji: "IMG", key: "vision" },
 ];
 
 const scenarios = [
@@ -304,19 +305,7 @@ export default function AgentPage() {
   return (
     <main className="chat-shell">
       <section className="chat-card wide" aria-label="Agent AI Pełna moc">
-        <nav className="top-nav agent-main-nav" aria-label="Nawigacja">
-          <Link className="active" href="/agent">
-            🤖 Agent
-          </Link>
-          <Link href="/chat">💬 Chat</Link>
-          <Link href="/react">🔄 ReAct</Link>
-          <Link href="/think">🧠 Myślenie</Link>
-          <Link href="/search">🌐 Szukaj</Link>
-          <Link href="/generate">🎨 Grafiki</Link>
-          <Link href="/vision">👁️ Vision</Link>
-          <Link href="/extract">📊 Analizator</Link>
-          <Link href="/format">📐 Formater</Link>
-        </nav>
+        <AppNav active="/agent" />
 
         <header className="chat-header">
           <div>
@@ -484,3 +473,4 @@ export default function AgentPage() {
     </main>
   );
 }
+

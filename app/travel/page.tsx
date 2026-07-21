@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
+import { AppNav } from "../../components/AppNav";
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useChat } from "@ai-sdk/react";
@@ -421,22 +422,12 @@ export default function TravelPage() {
   return (
     <main className="chat-shell">
       <section className="chat-card wide travel-card" aria-label="Asystent podróży AI">
-        <nav className="top-nav agent-main-nav" aria-label="Nawigacja">
-          <Link href="/agent">🤖 Agent</Link>
-          <Link href="/chat">💬 Chat</Link>
-          <Link href="/react">🔄 ReAct</Link>
-          <Link className="active" href="/travel">
-            ✈️ Podróże
-          </Link>
-          <Link href="/search">🌐 Szukaj</Link>
-          <Link href="/generate">🎨 Grafiki</Link>
-          <Link href="/format">📐 Formater</Link>
-        </nav>
+        <AppNav active="/travel" />
 
         <header className="chat-header">
           <div>
             <p className="eyebrow">Lekcja 4 · Warsztat 2</p>
-            <h1>✈️ Asystent podróży AI</h1>
+            <h1>Asystent podróży AI</h1>
             <p className="subtitle">
               Powiedz dokąd jedziesz, a agent sprawdzi pogodę, walutę, święta i atrakcje,
               a potem przygotuje gotowy plan wyjazdu.
@@ -747,3 +738,4 @@ export default function TravelPage() {
     </main>
   );
 }
+

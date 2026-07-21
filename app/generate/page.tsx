@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
+import { AppNav } from "../../components/AppNav";
 import { useState } from "react";
 
 const samplePrompts = [
@@ -90,20 +91,7 @@ export default function GeneratePage() {
   return (
     <main className="chat-shell">
       <section className="chat-card wide" aria-label="Generator grafik AI">
-        <nav className="top-nav" aria-label="Nawigacja">
-          <Link href="/agent">Agent</Link>
-          <Link href="/">🤖 Chat</Link>
-          <Link href="/react">🔄 ReAct</Link>
-          <Link href="/think">🧠 Myślenie</Link>
-          <Link href="/fewshot">📚 Słownik</Link>
-          <Link href="/format">📐 Formater</Link>
-          <Link href="/search">Szukaj</Link>
-          <Link className="active" href="/generate">
-            🎨 Grafiki
-          </Link>
-          <Link href="/wash">🚗 Myjnia</Link>
-          <Link href="/wash-site">🌐 Strona myjni</Link>
-        </nav>
+        <AppNav active="/generate" />
 
         <header className="chat-header">
           <div>
@@ -203,3 +191,6 @@ export default function GeneratePage() {
     </main>
   );
 }
+
+
+

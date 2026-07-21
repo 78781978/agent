@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
+import { AppNav } from "../../components/AppNav";
 import { useEffect, useRef, useState } from "react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useChat } from "@ai-sdk/react";
@@ -81,20 +82,7 @@ export default function FewShotPage() {
   return (
     <main className="chat-shell">
       <section className="chat-card" aria-label="Słownik AI">
-        <nav className="top-nav" aria-label="Nawigacja">
-          <Link href="/agent">Agent</Link>
-          <Link href="/">🤖 Chat</Link>
-          <Link href="/react">🔄 ReAct</Link>
-          <Link href="/think">🧠 Myślenie</Link>
-          <Link className="active" href="/fewshot">
-            📚 Słownik
-          </Link>
-          <Link href="/format">📐 Formater</Link>
-          <Link href="/search">Szukaj</Link>
-          <Link href="/generate">Grafiki</Link>
-          <Link href="/wash">🚗 Myjnia</Link>
-          <Link href="/wash-site">🌐 Strona myjni</Link>
-        </nav>
+        <AppNav active="/fewshot" />
 
         <header className="chat-header">
           <div>
@@ -199,3 +187,6 @@ export default function FewShotPage() {
     </main>
   );
 }
+
+
+

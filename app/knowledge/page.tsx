@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
+import { AppNav } from "../../components/AppNav";
 import { useEffect, useState } from "react";
 
 type KnowledgeDocument = {
@@ -141,15 +142,7 @@ export default function KnowledgePage() {
   return (
     <main className="chat-shell">
       <section className="chat-card wide" aria-label="Twoja baza wiedzy">
-        <nav className="top-nav agent-main-nav" aria-label="Nawigacja">
-          <Link href="/">Dashboard</Link>
-          <Link href="/chat">Chat</Link>
-          <Link href="/upload">Dodaj wiedzę</Link>
-          <Link className="active" href="/knowledge">
-            Podgląd wiedzy
-          </Link>
-          <Link href="/agent">Agent</Link>
-        </nav>
+        <AppNav active="/knowledge" />
 
         <header className="chat-header">
           <div>
@@ -272,3 +265,4 @@ export default function KnowledgePage() {
     </main>
   );
 }
+

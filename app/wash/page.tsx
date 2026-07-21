@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
+import { AppNav } from "../../components/AppNav";
 import { useEffect, useRef, useState } from "react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useChat } from "@ai-sdk/react";
@@ -56,25 +57,12 @@ export default function WashAgentPage() {
   return (
     <main className="chat-shell">
       <section className="chat-card wide" aria-label="Wash&Go Revenue Agent">
-        <nav className="top-nav" aria-label="Nawigacja">
-          <Link href="/agent">Agent</Link>
-          <Link href="/">🤖 Chat</Link>
-          <Link href="/think">🧠 Myślenie</Link>
-          <Link href="/fewshot">📚 Słownik</Link>
-          <Link href="/format">📐 Formater</Link>
-          <Link href="/search">Szukaj</Link>
-          <Link href="/generate">Grafiki</Link>
-          <Link className="active" href="/wash">
-            📈 Panel właściciela
-          </Link>
-          <Link href="/wash-booking">🚗 Rezerwacja klienta</Link>
-          <Link href="/wash-site">🌐 Strona myjni</Link>
-        </nav>
+        <AppNav active="/wash" />
 
         <header className="chat-header">
           <div>
             <p className="eyebrow">Praca domowa · Komenda biznesowa</p>
-            <h1>📈 Wash&Go Revenue Agent</h1>
+            <h1>Wash&Go Revenue Agent</h1>
             <p className="subtitle">
               Agent sprzedażowo-operacyjny dla właściciela myjni. Tworzy
               kampanie, odpowiada na trudne wiadomości klientów i pilnuje zasad
@@ -159,7 +147,7 @@ export default function WashAgentPage() {
             >
               {message.role === "assistant" && (
                 <div className="badge-row">
-                  <span className="model-badge pro">📈 Wash&Go</span>
+                  <span className="model-badge pro">WGO</span>
                   <span className="badge creative">/email</span>
                 </div>
               )}
@@ -170,7 +158,7 @@ export default function WashAgentPage() {
           {isLoading && (
             <article className="message assistant">
               <div className="badge-row">
-                <span className="model-badge pro">📈 Wash&Go</span>
+                <span className="model-badge pro">WGO</span>
               </div>
               <div className="bubble thinking">
                 Przygotowuję profesjonalny materiał biznesowy...
@@ -223,3 +211,4 @@ export default function WashAgentPage() {
     </main>
   );
 }
+

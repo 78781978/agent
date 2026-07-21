@@ -1,0 +1,24 @@
+﻿WAŻNE
+
+Na GitHub NIE wrzucaj tego folderu jako jednego folderu.
+Wejdź DO ŚRODKA tego folderu, zaznacz wszystkie pliki i foldery, a potem przeciągnij je na GitHub.
+
+Po poprawnym uploadzie na głównej stronie repozytorium GitHub musisz od razu widzieć:
+
+- app
+- lib
+- public
+- scripts
+- package.json
+- package-lock.json
+- vercel.json
+- README.md
+
+Jeżeli na GitHub widzisz tylko folder np. GITHUB_READY_AGENT_20260721-203657 albo DO_WRZUCENIA_NA_GITHUB_ZAWARTOSC_TEGO_FOLDERU, to Vercel pokaże błąd:
+Couldn't find any pages or app directory.
+
+Naprawa bez ponownego uploadu:
+W Vercel ustaw Root Directory na nazwę tego folderu, w którym są app i package.json.
+
+Najlepsza naprawa:
+Usuń pliki z repo i wrzuć samą ZAWARTOŚĆ tego folderu do głównego katalogu repo.

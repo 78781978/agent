@@ -14,7 +14,6 @@ const menuItems = [
   { href: "/search", label: "Szukaj" },
   { href: "/generate", label: "Grafiki" },
   { href: "/vision", label: "Vision" },
-  { href: "/extract", label: "Analizator" },
   { href: "/history", label: "Historia" },
   { href: "/upload", label: "Baza wiedzy" },
   { href: "/knowledge", label: "Podgląd wiedzy" },

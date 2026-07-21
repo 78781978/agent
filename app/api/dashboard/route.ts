@@ -24,7 +24,7 @@ type WeatherData = {
 };
 
 type RateData = {
-  code: "EUR" | "USD";
+  code: "EUR" | "USD" | "GBP";
   rate: number | null;
   date: string;
 };
@@ -129,8 +129,12 @@ async function getWeather(): Promise<ToolResult<WeatherData>> {
   }
 }
 
-async function getRate(code: "EUR" | "USD"): Promise<ToolResult<RateData>> {
-  const fallbackRate = code === "EUR" ? 4.28 : 3.95;
+async function getRate(code: RateData["code"]): Promise<ToolResult<RateData>> {
+  const fallbackRates: Record<RateData["code"], number> = {
+    EUR: 4.28,
+    USD: 3.95,
+    GBP: 5.02,
+  };
 
   try {
     const rate = await fetchJson<{
@@ -158,7 +162,7 @@ async function getRate(code: "EUR" | "USD"): Promise<ToolResult<RateData>> {
       ok: false,
       data: {
         code,
-        rate: fallbackRate,
+        rate: fallbackRates[code],
         date: "wartość testowa",
       },
       updatedAt: nowIso(),
@@ -213,10 +217,11 @@ async function getHolidays(): Promise<ToolResult<HolidayData[]>> {
 }
 
 export async function GET() {
-  const [weather, eur, usd, holidays] = await Promise.all([
+  const [weather, eur, usd, gbp, holidays] = await Promise.all([
     getWeather(),
     getRate("EUR"),
     getRate("USD"),
+    getRate("GBP"),
     getHolidays(),
   ]);
 
@@ -228,7 +233,7 @@ export async function GET() {
       label: polishDateTime(),
     },
     weather,
-    rates: [eur, usd],
+    rates: [eur, usd, gbp],
     holidays,
   });
 }

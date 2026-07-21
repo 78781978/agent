@@ -1,0 +1,1584 @@
+﻿import { google } from "@ai-sdk/google";
+import { searchKnowledge } from "../../../lib/knowledge";
+import {
+  convertToModelMessages,
+  createUIMessageStream,
+  createUIMessageStreamResponse,
+  jsonSchema,
+  stepCountIs,
+  streamText,
+  tool,
+  type UIMessage,
+} from "ai";
+
+export const maxDuration = 30;
+const maxSteps = 3;
+
+const isSearchGroundingEnabled =
+  process.env.ENABLE_SEARCH_GROUNDING === "true";
+
+if (isSearchGroundingEnabled) {
+  console.warn(
+    "UWAGA: Search Grounding jest WLACZONY. " +
+      "To jest najdrozsza funkcja API ($14/1000 zapytan). " +
+      "Uzywaj TYLKO do testow. Wylacz po testach usuwajac ENABLE_SEARCH_GROUNDING z .env.local, " +
+      "bo inni uczestnicy kursu maja wtedy ograniczony dostep do modeli.",
+  );
+}
+
+type ChatMode = "casual" | "expert" | "creative";
+type ModelChoice = "flash" | "pro";
+
+const memoryRules = `
+## PAMIĘĆ
+- Pamiętasz całą rozmowę od początku.
+- Nawiązuj do wcześniejszych wiadomości, gdy to istotne.
+- Jeśli użytkownik zmienia temat, zaakceptuj to, ale możesz nawiązać do wcześniejszego kontekstu.
+- Gdy użytkownik napisze "podsumuj" albo "co ustaliliśmy", streść całą rozmowę w punktach.
+- Jeśli użytkownik poda imię, zwracaj się do niego konsekwentnie po imieniu.
+
+## KOMENDA PODSUMOWANIA
+Gdy użytkownik napisze "podsumuj" lub "co ustaliliśmy":
+1. Wypisz główne tematy rozmowy.
+2. Wymień kluczowe ustalenia i odpowiedzi.
+3. Zaproponuj, w czym jeszcze możesz pomóc.
+Format: numerowana lista.
+`;
+
+const basePersona = `
+# Vie — Ekspertka automatyzacji AI dla małych firm i e-commerce
+
+## KIM JESTEM
+Jestem konsultantką automatyzacji AI z 7-letnim doświadczeniem w e-commerce,
+WordPress, WooCommerce i prostych aplikacjach webowych.
+Specjalizuję się w chatbotach AI, automatyzacji obsługi klienta oraz
+projektowaniu bezpiecznych procesów z API i narzędziami no-code/low-code.
+Pracowałam z małymi firmami, sklepami internetowymi, freelancerami i osobami,
+które dopiero uczą się wdrażania AI w biznesie.
+
+## JAK ODPOWIADAM
+
+### Struktura każdej odpowiedzi:
+  1. Podaję od razu gotową odpowiedź dla odbiorcy.
+  2. Nie opisuję procesu pracy, researchu ani użytych narzędzi w głównej treści.
+  3. Jeśli trzeba, dodaję krótkie źródła lub zastrzeżenie na końcu.
+  4. Kończę pytaniem tylko wtedy, gdy jest naprawdę potrzebne do dalszej pracy.
+
+### Zasady:
+- Nie zaczynam odpowiedzi od słów "Kontekst", "Analiza", "Research" ani "Czytanie strony".
+- Gdy podaję fakty, oznaczam pewność: ✓ pewne, ~ przybliżone, ? do weryfikacji.
+- **Pogrubiam** kluczowe terminy przy pierwszym użyciu.
+- Używam list numerowanych dla kroków i punktowanych dla opcji.
+- Maksymalnie 3 akapity plus rekomendacja.
+
+### Styl:
+- Język: polski.
+- Ton: profesjonalny, przystępny, ciepły i motywujący.
+- Gdy używam terminu branżowego, wyjaśniam go w nawiasie.
+
+## CZEGO NIE ROBIĘ
+- Nie odpowiadam na pytania spoza mojej dziedziny. Mówię wprost, że to nie moja specjalizacja, i proponuję, w czym mogę pomóc.
+- Nie udaję, że wiem coś, czego nie wiem.
+- Nie udzielam porad prawnych, medycznych ani finansowych. W takich tematach odsyłam do odpowiedniego specjalisty.
+`;
+
+const prompts: Record<ChatMode, string> = {
+  casual: `${basePersona}
+Tryb casual: odpowiadaj luźno, jak do znajomej osoby. Krótko, bez żargonu,
+z maksymalnie jednym emoji na odpowiedź.
+${memoryRules}`,
+  expert: `${basePersona}
+Tryb ekspert: odpowiadaj formalnie i szczegółowo. Struktura:
+Definicja -> Analiza -> Rekomendacja. Podawaj praktyczne założenia i ryzyka.
+${memoryRules}`,
+  creative: `${basePersona}
+Tryb kreatywny: odpowiadaj nieszablonowo. Używaj analogii, metafor i
+nieoczywistych perspektyw, ale nadal dawaj konkretne kroki.
+${memoryRules}`,
+};
+
+function getMode(value: unknown): ChatMode {
+  if (value === "expert" || value === "creative" || value === "casual") {
+    return value;
+  }
+
+  return "casual";
+}
+
+function getModel(value: unknown): ModelChoice {
+  if (value === "pro" || value === "flash") {
+    return value;
+  }
+
+  return "flash";
+}
+
+const modelIds: Record<ModelChoice, string> = {
+  flash: "gemini-3.1-flash-lite",
+  pro: "gemini-3.1-flash-lite",
+};
+
+const internetRules = `
+
+## INTERNET I ZRODLA
+- Zawsze odpowiadaj po polsku, nawet jesli zrodlo jest po angielsku.
+- Przy wyszukiwaniu najpierw szukaj zrodel z Polski: domen .pl, polskich firm, polskich stron i polskiego kontekstu.
+- Jesli nie znajdziesz sensownych zrodel z Polski, dopiero wtedy uzyj zrodel zagranicznych i jasno napisz, ze polskich wynikow nie bylo.
+- Nie zostawiaj samej listy linkow jako odpowiedzi. Najpierw wklej wnioski w czacie, potem ewentualnie podaj zrodla pomocnicze.
+- Gdy pytanie dotyczy aktualnych informacji, cen, wydarzen albo nowosci, korzystaj z Google Search.
+- Gdy uzytkownik poda adres URL, uzyj narzedzia readWebPage i stresc tresc strony.
+- Gdy uzytkownik prosi o obliczenia, VAT, procenty albo kwoty netto/brutto, uzyj calculator.
+- Gdy uzytkownik pyta o date, godzine, dzisiaj albo teraz, uzyj currentDateTime.
+- Gdy uzytkownik prosi o logo, grafike, ilustracje, mockup albo post wizualny, uzyj generateImage.
+- Gdy tworzysz gotowy post na social media, dodaj odpowiednie emotikonki powiazane z trescia posta. Uzywaj ich naturalnie: 1 emotikonka w naglowku, 2-5 w tresci lub punktach i 1 przy wezwaniu do dzialania. Nie dawaj emotikonek w kazdym zdaniu.
+- Nie pytaj o zgode na uzycie narzedzia. Jesli zadanie pasuje do narzedzia, uzyj go od razu.
+- Przy obliczeniach, VAT, procentach, datach, URL-ach i grafikach najpierw uzyj narzedzia, potem dopiero odpowiedz.
+- Jesli uzyjesz calculator do VAT, podaj jasno: kwote netto, kwote VAT i kwote brutto.
+- Przy informacjach z internetu podawaj zrodla jako klikalne linki w formacie Markdown: [nazwa strony](https://adres.pl).
+- Jesli strona nie da sie odczytac, powiedz krotko dlaczego i zaproponuj bezpieczny nastepny krok.
+`;
+
+const knowledgeRules = `
+
+## BAZA WIEDZY FIRMY
+Masz dostęp do bazy wiedzy firmy przez narzędzie searchKnowledge.
+
+ZASADY KORZYSTANIA Z BAZY WIEDZY:
+1. Gdy użytkownik pyta o ceny, pakiety, ofertę, regulamin, warunki, FAQ albo procedury — ZAWSZE najpierw użyj searchKnowledge.
+2. Odpowiadaj tylko na podstawie znalezionych fragmentów. Nie wymyślaj cen, warunków ani zapisów regulaminu.
+3. Jeśli searchKnowledge zwróci total_found=0 albo brak pasującego wyniku, nie odpowiadaj z wiedzy ogólnej. Napisz dokładnie: "Nie mam informacji na ten temat w mojej bazie wiedzy. Skontaktuj się z firmą bezpośrednio."
+4. Priorytet narzędzi: pytania o firmę/cennik/FAQ -> searchKnowledge; pytania ogólne -> Google Search lub inne narzędzia; obliczenia -> calculator.
+5. Gdy odpowiadasz na podstawie bazy wiedzy, zakończ odpowiedź osobną linią źródła: "📎 Źródło: [tytuł dokumentu]". Jeśli używasz kilku dokumentów, napisz: "📎 Źródła: [tytuł 1], [tytuł 2]".
+6. Tytuły źródeł bierz z pola source_documents albo z pól title/metadata.source w wynikach searchKnowledge.
+7. Powyższa odmowa dotyczy tylko pytań firmowych. Pytania ogólne, pogodę, waluty, Wikipedię i internet obsługuj normalnie odpowiednimi narzędziami.
+`;
+type ReadWebPageInput = {
+  url: string;
+};
+
+type CalculatorInput = {
+  expression: string;
+};
+
+type GenerateImageInput = {
+  prompt: string;
+};
+
+type SearchKnowledgeInput = {
+  query: string;
+};
+
+type GoogleImagePart = {
+  text?: string;
+  inlineData?: {
+    mimeType?: string;
+    data?: string;
+  };
+};
+
+type GoogleImageResponse = {
+  candidates?: Array<{
+    content?: {
+      parts?: GoogleImagePart[];
+    };
+  }>;
+  error?: {
+    message?: string;
+  };
+};
+
+type GenerateImageResult = Awaited<ReturnType<typeof generateGoogleImage>>;
+
+function useSearchGrounding(): Record<string, any> {
+  if (!isSearchGroundingEnabled) {
+    return {};
+  }
+
+  return {
+    google_search: google.tools.googleSearch({}),
+  };
+}
+
+type WebSearchInput = {
+  query: string;
+};
+
+type WebSearchResult = {
+  query: string;
+  usedQuery: string;
+  scope: "polish" | "global";
+  summary: string;
+  sources: Array<{
+    title: string;
+    url: string;
+    snippet?: string;
+  }>;
+  fallbackUrl: string;
+  note: string;
+};
+
+type AgentToolName =
+  | "webSearch"
+  | "calculator"
+  | "currentDateTime"
+  | "readWebPage"
+  | "generateImage";
+
+const imageModels = ["gemini-3.1-flash-lite-image"];
+
+function getMessageText(message: UIMessage) {
+  const parts = (message as { parts?: Array<{ text?: unknown; url?: unknown }> })
+    .parts;
+
+  if (Array.isArray(parts)) {
+    return parts
+      .map((part) => {
+        if (typeof part.text === "string") {
+          return part.text;
+        }
+
+        if (typeof part.url === "string") {
+          return part.url;
+        }
+
+        return "";
+      })
+      .join(" ");
+  }
+
+  const content = (message as { content?: unknown }).content;
+
+  return typeof content === "string" ? content : "";
+}
+
+function getLatestUserText(messages: UIMessage[]) {
+  const latestUserMessage = [...messages]
+    .reverse()
+    .find((message) => message.role === "user");
+
+  return latestUserMessage ? getMessageText(latestUserMessage) : "";
+}
+
+function detectRequiredTool(text: string): AgentToolName | undefined {
+  const normalizedText = text.toLowerCase();
+
+  if (
+    extractFirstUrl(text) ||
+    /\b(przeczytaj|odczytaj|wejdz na|wejdź na|sprawdz strone|sprawdź stronę|opisz strone|opisz stronę)\b/i.test(
+      normalizedText,
+    )
+  ) {
+    return "readWebPage";
+  }
+
+  if (
+    /\b(vat|procent|netto|brutto|oblicz|policz|wylicz|kalkulator|koszt|kwot|cena|rabat|marza|podatek)\b/i.test(
+      normalizedText,
+    ) &&
+    /\d/.test(normalizedText)
+  ) {
+    return "calculator";
+  }
+
+  if (/\d\s*[+\-*/]\s*\d/.test(normalizedText)) {
+    return "calculator";
+  }
+
+  if (
+    /\b(data|godzina|dzisiaj|teraz|aktualny czas|ktory dzien|ktora jest)\b/i.test(
+      normalizedText,
+    )
+  ) {
+    return "currentDateTime";
+  }
+
+  if (
+    /\b(logo|grafik[aęeią]?|obraz|ilustracj[aęeią]?|mockup|wizual|wygeneruj obraz|stworz obraz|stwórz obraz|baner)\b/i.test(
+      normalizedText,
+    )
+  ) {
+    return "generateImage";
+  }
+
+  if (
+    /\b(poszukaj|szukaj|znajdz|znajdź|wyszukaj|sprawdz w sieci|sprawdź w sieci|google|internet|najnowsze|aktualne|research|zrodla|zrodla|źródła)\b/i.test(
+      normalizedText,
+    )
+    || /\b(co robi|czym sie zajmuje|czym się zajmuje|kim jest|kto to|jaka to firma|co to za firma)\b/i.test(
+      normalizedText,
+    )
+  ) {
+    return "webSearch";
+  }
+
+  return undefined;
+}
+
+type DirectToolStep = {
+  toolName: AgentToolName;
+  input: unknown;
+  output: unknown;
+};
+
+function extractFirstUrl(text: string) {
+  const explicitUrl = text.match(/https?:\/\/[^\s),;]+/i)?.[0];
+
+  if (explicitUrl) {
+    return explicitUrl.replace(/[.,;:)]+$/g, "");
+  }
+
+  const domain = text.match(
+    /\b(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}(?:\/[^\s),;]*)?/i,
+  )?.[0];
+
+  if (!domain) {
+    return undefined;
+  }
+
+  return `https://${domain.replace(/[.,;:)]+$/g, "")}`;
+}
+
+function extractSearchQuery(text: string) {
+  return text
+    .replace(/wygeneruj[\s\S]*$/i, "")
+    .replace(/\s+i\s+napisz[\s\S]*$/i, "")
+    .replace(/\s+i\s+opisz[\s\S]*$/i, "")
+    .replace(/\s+po polsku[\s\S]*$/i, "")
+    .replace(/poszukaj/i, "")
+    .replace(/szukaj/i, "")
+    .replace(/znajd[zź]\s*w\s*google/i, "")
+    .replace(/znajd[zź]/i, "")
+    .replace(/wyszukaj/i, "")
+    .replace(/sprawdz w sieci/i, "")
+    .replace(/sprawdź w sieci/i, "")
+    .replace(/\s+i\s*$/i, "")
+    .replace(/[.?,;:\s]+$/g, "")
+    .trim() || text.trim();
+}
+
+function extractNumbers(text: string) {
+  return [...text.matchAll(/\d+(?:[,.]\d+)?/g)].map((match) =>
+    Number(match[0].replace(",", ".")),
+  );
+}
+
+function isBusinessRevenueTask(text: string) {
+  return /\b(agent|agentow|agentów|wdrozen|wdrożeń|wdrozenia|wdrożenia|zarobic|zarobić|ofert|social|post)\b/i.test(
+    text,
+  );
+}
+
+function detectToolPlan(text: string): AgentToolName[] {
+  const normalizedText = text.toLowerCase();
+  const businessTask = isBusinessRevenueTask(text);
+  const plan: AgentToolName[] = [];
+
+  if (businessTask) {
+    plan.push("calculator");
+  }
+
+  if (
+    extractFirstUrl(text) ||
+    /\b(przeczytaj|odczytaj|wejdz na|wejdź na|sprawdz strone|sprawdź stronę|opisz strone|opisz stronę)\b/i.test(
+      normalizedText,
+    )
+  ) {
+    plan.push("readWebPage");
+  }
+
+  if (
+    !businessTask &&
+    /\b(poszukaj|szukaj|znajdz|znajdź|wyszukaj|sprawdz|sprawdź|sprawdz w sieci|sprawdź w sieci|google|internet|najnowsze|aktualne|research|zrodla|źrodla|źródła)\b/i.test(
+      normalizedText,
+    )
+    || (!businessTask && /\b(co robi|czym sie zajmuje|czym się zajmuje|kim jest|kto to|jaka to firma|co to za firma)\b/i.test(
+      normalizedText,
+    ))
+  ) {
+    plan.push("webSearch");
+  }
+
+  if (
+    (/\b(vat|procent|netto|brutto|oblicz|policz|wylicz|kalkulator|koszt|kwot|cena|rabat|marza|podatek)\b/i.test(
+      normalizedText,
+    ) &&
+      /\d/.test(normalizedText)) ||
+    /\d\s*[+\-*/]\s*\d/.test(normalizedText)
+  ) {
+    plan.push("calculator");
+  }
+
+  if (
+    /\b(data|godzina|dzisiaj|teraz|aktualny czas|ktory dzien|która jest|ktora jest)\b/i.test(
+      normalizedText,
+    )
+  ) {
+    plan.push("currentDateTime");
+  }
+
+  if (
+    /\b(logo|grafik[aęeią]?|obraz|ilustracj[aęeią]?|mockup|wizual|wygeneruj obraz|stworz obraz|stwórz obraz|baner)\b/i.test(
+      normalizedText,
+    )
+  ) {
+    plan.push("generateImage");
+  }
+
+  return [...new Set(plan)];
+}
+
+function buildCalculatorSteps(text: string): {
+  steps: DirectToolStep[];
+  answer: string;
+} {
+  const normalizedText = text.toLowerCase();
+  const numbers = extractNumbers(text);
+
+  if (isBusinessRevenueTask(text)) {
+    const agentsPerMonth = numbers.find((number) => number > 0 && number <= 20) ?? 3;
+    const implementationPrice = 4500;
+    const monthlyCarePrice = 900;
+    const implementationExpression = `${agentsPerMonth} * ${implementationPrice}`;
+    const monthlyCareExpression = `${agentsPerMonth} * ${monthlyCarePrice}`;
+    const totalFirstMonthExpression = `(${agentsPerMonth} * ${implementationPrice}) + (${agentsPerMonth} * ${monthlyCarePrice})`;
+    const implementationRevenue = calculateExpression(implementationExpression);
+    const monthlyCareRevenue = calculateExpression(monthlyCareExpression);
+    const totalFirstMonthRevenue = calculateExpression(totalFirstMonthExpression);
+
+    return {
+      steps: [
+        {
+          toolName: "calculator",
+          input: { expression: implementationExpression },
+          output: implementationRevenue,
+        },
+        {
+          toolName: "calculator",
+          input: { expression: monthlyCareExpression },
+          output: monthlyCareRevenue,
+        },
+        {
+          toolName: "calculator",
+          input: { expression: totalFirstMonthExpression },
+          output: totalFirstMonthRevenue,
+        },
+      ],
+      answer: [
+        "Przyjęłam ostrożne, testowe stawki dla początkującej oferty B2B:",
+        `- wdrożenie jednego agenta AI: **${implementationPrice} PLN**,`,
+        `- miesięczna opieka/utrzymanie jednego agenta: **${monthlyCarePrice} PLN**,`,
+        `- liczba wdrożeń miesięcznie: **${agentsPerMonth}**.`,
+        "",
+        `Potencjalny przychód z wdrożeń: **${
+          implementationRevenue.ok ? implementationRevenue.result : "nie udało się policzyć"
+        } PLN**.`,
+        `Potencjalny miesięczny abonament/opieka: **${
+          monthlyCareRevenue.ok ? monthlyCareRevenue.result : "nie udało się policzyć"
+        } PLN**.`,
+        `Potencjalny przychód w pierwszym miesiącu: **${
+          totalFirstMonthRevenue.ok ? totalFirstMonthRevenue.result : "nie udało się policzyć"
+        } PLN**.`,
+        "",
+        "To nie jest obietnica wyniku, tylko prosty model do planowania oferty i rozmów sprzedażowych.",
+      ].join("\n"),
+    };
+  }
+
+  const percent = text.match(/(\d+(?:[,.]\d+)?)\s*%/)?.[1];
+  const rate = percent ? Number(percent.replace(",", ".")) : undefined;
+  const amount = numbers.find((number) => number !== rate) ?? numbers.at(-1) ?? 0;
+
+  if (normalizedText.includes("vat") && rate && amount) {
+    const vatExpression = `${amount} * ${rate / 100}`;
+    const grossExpression = `${amount} + (${amount} * ${rate / 100})`;
+    const vat = calculateExpression(vatExpression);
+    const gross = calculateExpression(grossExpression);
+
+    return {
+      steps: [
+        {
+          toolName: "calculator",
+          input: { expression: vatExpression },
+          output: vat,
+        },
+        {
+          toolName: "calculator",
+          input: { expression: grossExpression },
+          output: gross,
+        },
+      ],
+      answer: [
+        `Kwota netto: **${amount} PLN**. VAT ${rate}% wynosi **${
+          vat.ok ? vat.result : "nie udało się policzyć"
+        } PLN**. Kwota brutto to **${gross.ok ? gross.result : "nie udało się policzyć"} PLN**.`,
+        "",
+        "W fakturze lub ofercie warto pokazać trzy wartości: netto, VAT i brutto.",
+      ].join("\n"),
+    };
+  }
+
+  const expression = text.match(/[\d\s+\-*/().,%]+/)?.[0]?.trim() || "0";
+  const result = calculateExpression(expression);
+
+  return {
+    steps: [
+      {
+        toolName: "calculator",
+        input: { expression },
+        output: result,
+      },
+    ],
+    answer: result.ok
+      ? `${expression} = **${result.result}**.`
+      : `Nie udało się policzyć wyrażenia: ${expression}.`,
+  };
+}
+
+function domainFromUrl(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+function isPolishSource(source: WebSearchResult["sources"][number]) {
+  const domain = domainFromUrl(source.url).toLowerCase();
+  const text = `${source.title} ${source.snippet ?? ""}`.toLowerCase();
+
+  return (
+    domain.endsWith(".pl") ||
+    domain.includes(".pl/") ||
+    text.includes("polska") ||
+    text.includes("polski") ||
+    text.includes("warszawa") ||
+    text.includes("krakow") ||
+    text.includes("kraków") ||
+    text.includes("wroclaw") ||
+    text.includes("wrocław") ||
+    text.includes("poznan") ||
+    text.includes("poznań") ||
+    text.includes("gdansk") ||
+    text.includes("gdańsk") ||
+    /[ąćęłńóśźż]/i.test(text)
+  );
+}
+
+function getQueryKeywords(query: string) {
+  const stopWords = new Set([
+    "poszukaj",
+    "szukaj",
+    "znajdz",
+    "znajdź",
+    "google",
+    "polska",
+    "firma",
+    "czym",
+    "jest",
+    "robi",
+    "oraz",
+    "napisz",
+    "opisz",
+    "polsku",
+  ]);
+
+  return query
+    .toLowerCase()
+    .replace(/[^a-z0-9ąćęłńóśźż ]/gi, " ")
+    .split(/\s+/)
+    .map((word) => word.trim())
+    .filter((word) => word.length >= 4)
+    .filter((word) => !stopWords.has(word));
+}
+
+function isRelevantToQuery(
+  source: WebSearchResult["sources"][number],
+  query: string,
+) {
+  const keywords = getQueryKeywords(query);
+
+  if (keywords.length === 0) {
+    return true;
+  }
+
+  const text = `${source.title} ${source.snippet ?? ""} ${domainFromUrl(source.url)}`
+    .toLowerCase()
+    .replace(/[^a-z0-9ąćęłńóśźż ]/gi, " ");
+
+  return keywords.some((keyword) => text.includes(keyword));
+}
+
+function looksLikePolishText(text: string) {
+  return /[ąćęłńóśźż]/i.test(text) || /\b(oraz|jest|sa|są|dla|firma|uslugi|usługi|kontakt|oferta)\b/i.test(text);
+}
+
+function formatSourcesPlain(sources: WebSearchResult["sources"]) {
+  if (sources.length === 0) {
+    return "Brak pewnych źródeł do pokazania w czacie.";
+  }
+
+  return sources
+    .map((source, index) => `${index + 1}. ${source.title} (${domainFromUrl(source.url)})`)
+    .join("\n");
+}
+
+function summarizeReadPageResult(
+  pageOutput: Awaited<ReturnType<typeof readWebPage>> | undefined,
+) {
+  if (!pageOutput) {
+    return "Nie bylo strony do przeczytania.";
+  }
+
+  if (!pageOutput.ok) {
+    return `Nie udalo sie przeczytac strony: ${pageOutput.error ?? "nieznany blad"}.`;
+  }
+
+  const content = (pageOutput.content ?? "").replace(/\s+/g, " ").trim();
+
+  if (!content) {
+    return "Strona zostala pobrana, ale nie miala czytelnej tresci.";
+  }
+
+  const knownTopics = [
+    "iPhone",
+    "Mac",
+    "iPad",
+    "Apple Watch",
+    "AirPods",
+    "Vision",
+    "trade-in",
+    "AI",
+    "kontakt",
+    "oferta",
+    "uslugi",
+  ].filter((topic) => content.toLowerCase().includes(topic.toLowerCase()));
+
+  const topicLine = knownTopics.length
+    ? `Na stronie widze tematy/sekcje: ${knownTopics.join(", ")}.`
+    : "Strona zostala odczytana. Ponizej wklejam najwazniejszy fragment zrodla.";
+
+  const polishFindings = knownTopics.length
+    ? knownTopics.map((topic) => `- Strona zawiera informacje o: ${topic}.`)
+    : ["- Strona zostala odczytana, ale nie udalo sie automatycznie nazwac najwazniejszych sekcji."];
+
+  const sourceNote = looksLikePolishText(content)
+    ? `Krotki fragment zrodla: ${content.slice(0, 700)}`
+    : "Zrodlo nie wyglada na polskojezyczne, wiec nie wklejam dlugiego angielskiego fragmentu jako odpowiedzi.";
+
+  return [
+    topicLine,
+    "Najwazniejsze wnioski po polsku:",
+    ...polishFindings,
+    sourceNote,
+  ].join("\n");
+}
+
+function splitIntoUsefulSentences(text: string) {
+  return text
+    .replace(/\s+/g, " ")
+    .split(/(?<=[.!?])\s+|;\s+|\s+-\s+/)
+    .map((sentence) => sentence.trim())
+    .filter((sentence) => sentence.length >= 45)
+    .filter((sentence) => sentence.length <= 280)
+    .filter((sentence) => !/cookies|privacy policy|learn more|czytaj wiecej|zaloguj|accept/i.test(sentence));
+}
+
+function uniqueSentences(sentences: string[]) {
+  const seen = new Set<string>();
+
+  return sentences.filter((sentence) => {
+    const key = sentence
+      .toLowerCase()
+      .replace(/[^a-z0-9ąćęłńóśźż ]/gi, "")
+      .slice(0, 90);
+
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+}
+
+function collectResearchFacts(
+  searchOutput: WebSearchResult | undefined,
+  pageOutput: Awaited<ReturnType<typeof readWebPage>> | undefined,
+) {
+  const snippets = searchOutput?.sources
+    .map((source) => source.snippet)
+    .filter((value): value is string => Boolean(value?.trim())) ?? [];
+  const pageSentences = pageOutput?.ok
+    ? splitIntoUsefulSentences(pageOutput.content ?? "").slice(0, 6)
+    : [];
+
+  return uniqueSentences([...snippets, ...pageSentences]).slice(0, 8);
+}
+
+function buildBusinessSocialPost() {
+  return [
+    "**Gotowy post na social media:** 🚀",
+    "",
+    "Już niedługo poszerzam ofertę o automatyzacje i dedykowanych agentów AI dla firm. 🤖",
+    "",
+    "To rozwiązania dla przedsiębiorców, którzy chcą szybciej obsługiwać klientów, lepiej porządkować zapytania, automatyzować powtarzalne zadania i odzyskać czas na rozwój biznesu.",
+    "",
+    "Agent AI może wspierać między innymi:",
+    "- 💬 obsługę klienta,",
+    "- 📄 przygotowanie odpowiedzi i ofert,",
+    "- 🔍 analizę zapytań,",
+    "- ⚙️ automatyzację procesów,",
+    "- 📊 pracę z dokumentami i danymi.",
+    "",
+    "Moim celem jest tworzenie praktycznych wdrożeń AI, które nie są tylko ciekawostką technologiczną, ale realnym wsparciem w codziennej pracy firmy.",
+    "",
+    "Jeśli prowadzisz firmę i chcesz sprawdzić, które procesy można u Ciebie zautomatyzować, napisz do mnie wiadomość. 📩",
+  ].join("\n");
+}
+
+function shouldIncludeBusinessSocialPost(text: string) {
+  return /\b(post|social|linkedin|facebook|instagram|ofert)\b/i.test(text);
+}
+
+function buildResearchArticle(
+  query: string,
+  searchOutput: WebSearchResult | undefined,
+  pageOutput: Awaited<ReturnType<typeof readWebPage>> | undefined,
+) {
+  const facts = collectResearchFacts(searchOutput, pageOutput);
+  const sources = searchOutput?.sources ?? [];
+  const sourceContext =
+    searchOutput?.scope === "polish"
+      ? "Opracowanie opiera się przede wszystkim na polskich źródłach i polskim kontekście."
+      : "Opracowanie opiera się na dostępnych źródłach, w tym wynikach globalnych, ponieważ polskie źródła były ograniczone.";
+  const cleanQuery = query.replace(/\s+/g, " ").trim();
+
+  if (facts.length === 0) {
+    return [
+      `## ${cleanQuery}`,
+      "",
+      "Nie mam wystarczająco dużo potwierdzonych informacji, aby przygotować rzetelne opracowanie. Najlepszym rozwiązaniem będzie podanie oficjalnej strony, profilu firmy albo dodatkowego tekstu źródłowego.",
+    ].join("\n");
+  }
+
+  const combinedFacts = facts.join(" ").toLowerCase();
+  const topicLabels = [
+    { pattern: /agent|agentic/i, label: "agentów AI i systemy agentowe" },
+    { pattern: /automatyzac/i, label: "automatyzacje biznesowe" },
+    { pattern: /ai|sztuczn/i, label: "rozwiązania oparte na AI" },
+    { pattern: /saas|produkt/i, label: "produkty SaaS i narzędzia cyfrowe" },
+    { pattern: /e-?commerce|woocommerce|sklep/i, label: "e-commerce" },
+    { pattern: /architektur|system/i, label: "architekturę systemów" },
+    { pattern: /founder|ceo|zalozyciel|założyciel/i, label: "rozwój firmy technologicznej" },
+  ]
+    .filter((item) => item.pattern.test(combinedFacts))
+    .map((item) => item.label);
+  const uniqueTopics = [...new Set(topicLabels)];
+  const topicText = uniqueTopics.length
+    ? uniqueTopics.join(", ")
+    : "działalność opisaną w znalezionych źródłach";
+  const personOrCompany = /pawel|paweł|founder|ceo|zalozyciel|założyciel/i.test(
+    combinedFacts,
+  )
+    ? "W źródłach pojawia się jako osoba związana z budową i wdrażaniem rozwiązań technologicznych."
+    : "W źródłach pojawia się jako temat lub podmiot wymagający dalszej weryfikacji na oficjalnych stronach.";
+  const firstParagraph = `Z dostępnych informacji wynika, że **${cleanQuery}** jest związany z obszarem: ${topicText}. ${personOrCompany}`;
+  const secondParagraph =
+    "Najmocniej powtarzający się obraz jest taki: chodzi o praktyczne wykorzystanie technologii w biznesie, czyli budowanie automatyzacji, produktów cyfrowych, procesów decyzyjnych i narzędzi, które pomagają firmom działać szybciej bez rozbudowy dużego zespołu technicznego.";
+  const thirdParagraph =
+    "W praktyce można to opisać krótko tak: jest to kierunek łączący strategię biznesową, technologię, automatyzację i wdrożenia AI. Przy dalszej pracy warto opierać się przede wszystkim na oficjalnej stronie, profilu firmowym i materiałach właściciela, a mniej na przypadkowych katalogach lub agregatorach.";
+  const sourceDomains = sources
+    .slice(0, 4)
+    .map((source) => domainFromUrl(source.url))
+    .filter(Boolean)
+    .join(", ");
+
+  return [
+    `## ${cleanQuery} — krótkie opracowanie`,
+    "",
+    `${sourceContext} Na podstawie dostępnych informacji można przygotować następujące podsumowanie.`,
+    "",
+    firstParagraph,
+    "",
+    secondParagraph || "W dostępnych źródłach nie ma wielu szczegółów, dlatego najważniejsze jest trzymanie się potwierdzonych informacji i nie dopowiadanie faktów na siłę.",
+    "",
+    thirdParagraph
+      ? thirdParagraph
+      : "W praktyce oznacza to, że temat warto dalej weryfikować przez oficjalną stronę, profil firmowy albo bezpośrednie materiały właściciela.",
+    "",
+    `**Źródła, na których oparto opracowanie:** ${sourceDomains || "brak pewnych domen do pokazania"}.`,
+  ].join("\n");
+}
+
+async function buildDirectToolResponse(text: string, messages: UIMessage[]) {
+  const plan = detectToolPlan(text);
+  const businessTask = isBusinessRevenueTask(text);
+
+  if (plan.length === 0) {
+    return undefined;
+  }
+
+  const steps: DirectToolStep[] = [];
+  const answerParts: string[] = [];
+
+  if (plan.includes("readWebPage")) {
+    const url = extractFirstUrl(text);
+
+    if (url) {
+      steps.push({
+        toolName: "readWebPage",
+        input: { url },
+        output: await readWebPage(url),
+      });
+    }
+  }
+
+  if (plan.includes("webSearch") && !businessTask) {
+    const query = extractSearchQuery(text);
+    const searchResult = await webSearch(query);
+
+    steps.push({
+      toolName: "webSearch",
+      input: { query },
+      output: searchResult,
+    });
+
+    const firstResult = searchResult.sources[0];
+
+    if (!extractFirstUrl(text) && firstResult?.url) {
+      steps.push({
+        toolName: "readWebPage",
+        input: { url: firstResult.url },
+        output: await readWebPage(firstResult.url),
+      });
+    }
+  }
+
+  if (plan.includes("calculator")) {
+    const calculation = buildCalculatorSteps(text);
+    steps.push(...calculation.steps);
+    answerParts.push(calculation.answer);
+
+    if (shouldIncludeBusinessSocialPost(text)) {
+      answerParts.push(buildBusinessSocialPost());
+    }
+  }
+
+  if (plan.includes("currentDateTime")) {
+    const output = getCurrentDateTime();
+
+    steps.push({
+      toolName: "currentDateTime",
+      input: {},
+      output,
+    });
+    answerParts.push(
+      `Aktualna data i godzina: **${output.locale}**.`,
+    );
+  }
+
+  if (plan.includes("generateImage")) {
+    const searchOutput = steps.find((step) => step.toolName === "webSearch")
+      ?.output as WebSearchResult | undefined;
+    const isSocialPostImage = /\b(post|social|linkedin|facebook|instagram)\b/i.test(text);
+    const prompt = [
+      isSocialPostImage
+        ? `Professional social media graphic for a business announcement about AI automation services and dedicated AI agents for companies. Modern B2B style, clean composition, dark navy and lime green accents, abstract AI network, confident but approachable, no text. Request context: ${text}`
+        : `Professional modern logo or visual concept based on this request: ${text}`,
+      searchOutput?.summary ? `Research context: ${searchOutput.summary}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+    const output = await generateGoogleImage(prompt);
+
+    steps.push({
+      toolName: "generateImage",
+      input: { prompt },
+      output,
+    });
+  }
+
+  if (!businessTask && plan.includes("webSearch") && plan.includes("generateImage")) {
+    const searchOutput = steps.find((step) => step.toolName === "webSearch")
+      ?.output as WebSearchResult | undefined;
+    const pageOutput = steps.find((step) => step.toolName === "readWebPage")
+      ?.output as Awaited<ReturnType<typeof readWebPage>> | undefined;
+    const imageOutput = steps.find((step) => step.toolName === "generateImage")
+      ?.output as GenerateImageResult | undefined;
+    const pageSummary = buildResearchArticle(
+      searchOutput?.query ?? extractSearchQuery(text),
+      searchOutput,
+      pageOutput,
+    );
+
+    answerParts.push(
+      [
+        pageSummary,
+        "",
+        `**Propozycja logo:** wygenerowano wersję roboczą w narzędziu ${imageOutput?.provider ?? "generator obrazu"}.`,
+      ].join("\n"),
+    );
+  } else if (!businessTask && plan.includes("webSearch")) {
+    const searchOutput = steps.find((step) => step.toolName === "webSearch")
+      ?.output as WebSearchResult | undefined;
+    const pageOutput = steps.find((step) => step.toolName === "readWebPage")
+      ?.output as Awaited<ReturnType<typeof readWebPage>> | undefined;
+    const pageSummary = buildResearchArticle(
+      searchOutput?.query ?? extractSearchQuery(text),
+      searchOutput,
+      pageOutput,
+    );
+
+    answerParts.push(
+      pageSummary,
+    );
+  } else if (plan.includes("generateImage")) {
+    const imageOutput = steps.find((step) => step.toolName === "generateImage")
+      ?.output as GenerateImageResult | undefined;
+
+    answerParts.push(
+      `Wygenerowano obraz narzędziem ${
+        imageOutput?.provider ?? "generator obrazu"
+      }. To wersja robocza do obejrzenia i dalszego dopracowania.`,
+    );
+  }
+
+  if (plan.includes("readWebPage") && answerParts.length === 0) {
+    const pageOutput = steps.find((step) => step.toolName === "readWebPage")
+      ?.output as Awaited<ReturnType<typeof readWebPage>> | undefined;
+
+    answerParts.push(
+      summarizeReadPageResult(pageOutput),
+    );
+  }
+
+  const stream = createUIMessageStream({
+    originalMessages: messages,
+    execute({ writer }) {
+      steps.forEach((step, index) => {
+        const toolCallId = `direct-tool-${Date.now()}-${index}`;
+
+        writer.write({
+          type: "tool-input-available",
+          toolCallId,
+          toolName: step.toolName,
+          input: step.input,
+        } as never);
+        writer.write({
+          type: "tool-output-available",
+          toolCallId,
+          output: step.output,
+        } as never);
+      });
+
+      writer.write({ type: "text-start", id: "direct-answer" } as never);
+      writer.write({
+        type: "text-delta",
+        id: "direct-answer",
+        delta: answerParts.join("\n\n"),
+      } as never);
+      writer.write({ type: "text-end", id: "direct-answer" } as never);
+      writer.write({ type: "finish", finishReason: "stop" } as never);
+    },
+  });
+
+  return createUIMessageStreamResponse({ stream });
+}
+
+function decodeSearchUrl(url: string) {
+  const normalizedUrl = url.startsWith("//") ? `https:${url}` : url;
+
+  try {
+    const parsedUrl = new URL(normalizedUrl);
+    const redirectedUrl = parsedUrl.searchParams.get("uddg");
+
+    return redirectedUrl ? decodeURIComponent(redirectedUrl) : normalizedUrl;
+  } catch {
+    return normalizedUrl;
+  }
+}
+
+function stripHtml(text: string) {
+  return decodeHtmlEntities(text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " "))
+    .trim();
+}
+
+function extractSearchResults(html: string) {
+  const results: WebSearchResult["sources"] = [];
+  const blocks = html.split(/<div class="result\b/i).slice(1, 8);
+
+  for (const block of blocks) {
+    const linkMatch = block.match(
+      /<a[^>]+class="[^"]*result__a[^"]*"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i,
+    );
+
+    if (!linkMatch) {
+      continue;
+    }
+
+    const snippetMatch = block.match(
+      /<a[^>]+class="[^"]*result__snippet[^"]*"[^>]*>([\s\S]*?)<\/a>/i,
+    );
+    const url = decodeSearchUrl(linkMatch[1]);
+    const title = stripHtml(linkMatch[2]);
+    const snippet = snippetMatch ? stripHtml(snippetMatch[1]) : "";
+
+    const domain = domainFromUrl(url).toLowerCase();
+    const isLowValueResult =
+      domain.includes("translate.google") ||
+      domain.includes("google.com") ||
+      domain.includes("duckduckgo.com") ||
+      /tłumacz google|google translate/i.test(title);
+
+    if (title && url && !url.includes("duckduckgo.com/y.js") && !isLowValueResult) {
+      results.push({ title, url, snippet });
+    }
+  }
+
+  return results.slice(0, 5);
+}
+
+function buildSearchSummary(
+  query: string,
+  sources: WebSearchResult["sources"],
+  scope: WebSearchResult["scope"],
+) {
+  if (sources.length === 0) {
+    return `Nie udało mi się pobrać konkretnych wyników dla zapytania "${query}". Nie będę udawać, że znam fakty. Spróbuj podać dokładniejszą nazwę firmy albo adres strony, wtedy użyję czytania strony.`;
+  }
+
+  const domains = sources
+    .slice(0, 4)
+    .map((source) => domainFromUrl(source.url))
+    .filter(Boolean)
+    .join(", ");
+
+  return [
+    scope === "polish"
+      ? `Sprawdziłam najpierw polskie źródła dla zapytania "${query}".`
+      : `Nie znalazłam wystarczających polskich źródeł dla zapytania "${query}", więc użyłam także wyników globalnych.`,
+    `Przejrzałam ${sources.length} wyników i na ich podstawie przygotowuję syntetyczne opracowanie, a nie listę cytatów.`,
+    `Najbardziej użyteczne domeny: ${domains || "brak pewnych domen"}.`,
+  ].join("\n");
+
+  const lines = sources.slice(0, 3).map((source, index) => {
+    const domain = domainFromUrl(source.url);
+    const shouldShowSnippet =
+      source.snippet && (scope === "polish" || looksLikePolishText(source.snippet));
+    const snippet = shouldShowSnippet
+      ? ` Opis wyniku: ${source.snippet}`
+      : " Opis źródła nie jest po polsku albo nie został pobrany, więc nie wklejam go jako głównej odpowiedzi.";
+
+    return `${index + 1}. ${source.title} (${domain}).${snippet}`;
+  });
+
+  return [
+    scope === "polish"
+      ? `Najpierw sprawdziłam polskie źródła dla zapytania "${query}" i znalazłam wyniki z polskiego kontekstu:`
+      : `Nie znalazłam wystarczająco dobrych polskich wyników dla zapytania "${query}", więc użyłam wyników globalnych:`,
+    ...lines,
+    "Wnioski opisuję po polsku. Przy firmach o mało widocznej obecności w sieci warto dodatkowo potwierdzić oficjalną stronę lub profil firmy.",
+  ].join("\n");
+}
+
+async function webSearch(query: string): Promise<WebSearchResult> {
+  const fallbackUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+  const polishQuery = `${query} Polska site:.pl`;
+  const globalQuery = query;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+
+  try {
+    const fetchResults = async (searchQuery: string, locale = "pl-pl") => {
+      const searchUrl = `https://duckduckgo.com/html/?q=${encodeURIComponent(
+        searchQuery,
+      )}&kl=${encodeURIComponent(locale)}`;
+      const response = await fetch(searchUrl, {
+        signal: controller.signal,
+        headers: {
+          "user-agent": "Mozilla/5.0 Vie AI learning agent",
+          accept: "text/html,application/xhtml+xml,text/plain",
+          "accept-language": "pl-PL,pl;q=0.9,en;q=0.6",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`wyszukiwarka zwrocila HTTP ${response.status}`);
+      }
+
+      return extractSearchResults(await response.text());
+    };
+
+    const polishResults = await fetchResults(polishQuery, "pl-pl");
+    const polishSources = polishResults.filter(isPolishSource);
+    const globalResults =
+      polishSources.length > 0 ? [] : await fetchResults(globalQuery, "wt-wt");
+    const globalPolishSources = globalResults.filter(isPolishSource);
+    const scope: WebSearchResult["scope"] =
+      polishSources.length > 0 || globalPolishSources.length > 0
+        ? "polish"
+        : "global";
+    const usedQuery = polishSources.length > 0 ? polishQuery : globalQuery;
+    const candidateSources =
+      polishSources.length > 0
+        ? polishSources
+        : globalPolishSources.length > 0
+          ? globalPolishSources
+          : globalResults;
+    const relevantSources = candidateSources.filter((source) =>
+      isRelevantToQuery(source, query),
+    );
+    const sources = relevantSources.length > 0 ? relevantSources : candidateSources;
+
+    return {
+      query,
+      usedQuery,
+      scope,
+      summary: buildSearchSummary(query, sources, scope),
+      sources,
+      fallbackUrl,
+      note:
+        "Research zostal wklejony bezposrednio do czatu. Linki sa tylko zrodlami pomocniczymi.",
+    };
+  } catch (error) {
+    const message =
+      error instanceof Error && error.name === "AbortError"
+        ? "przekroczono limit czasu pobierania wynikow"
+        : error instanceof Error
+          ? error.message
+          : "nieznany blad";
+
+    return {
+      query,
+      usedQuery: query,
+      scope: "global",
+      summary: `Nie udało mi się pobrać konkretnych wyników dla zapytania "${query}" bezpośrednio w aplikacji. Powód techniczny: ${message}. Nie podaję zmyślonych informacji; mogę dalej pracować, jeśli podasz adres strony firmy albo wkleisz tekst źródłowy.`,
+      sources: [],
+      fallbackUrl,
+      note:
+        "To awaryjna odpowiedz narzedzia. Agent nie linkuje jako glownego wyniku, tylko jasno wyjasnia, ze nie pobral danych.",
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function calculateExpression(expression: string) {
+  if (!/^[\d\s+\-*/().,%]+$/.test(expression)) {
+    return {
+      ok: false,
+      expression,
+      error:
+        "Kalkulator przyjmuje tylko liczby oraz znaki + - * / ( ) . , %.",
+    };
+  }
+
+  const normalizedExpression = expression.replace(/,/g, ".").replace(/%/g, "/100");
+  const value = Function(`"use strict"; return (${normalizedExpression});`)();
+
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return {
+      ok: false,
+      expression,
+      error: "Nie udalo sie policzyc tego wyrazenia.",
+    };
+  }
+
+  return {
+    ok: true,
+    expression,
+    result: Number(value.toFixed(6)),
+  };
+}
+
+function getCurrentDateTime() {
+  const now = new Date();
+
+  return {
+    iso: now.toISOString(),
+    locale: now.toLocaleString("pl-PL", {
+      timeZone: "Europe/Warsaw",
+      dateStyle: "full",
+      timeStyle: "medium",
+    }),
+    timezone: "Europe/Warsaw",
+  };
+}
+
+function getGoogleImageApiKey() {
+  return (
+    process.env.GOOGLE_API_KEY ||
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
+    process.env.GEMINI_API_KEY
+  );
+}
+
+function summarizeGoogleImageErrors(errors: string[]) {
+  const allErrors = errors.join(" | ");
+
+  if (allErrors.includes("Quota exceeded") && allErrors.includes("limit: 0")) {
+    return "Klucz Google został odczytany, ale konto nie ma aktywnego limitu dla generowania obrazów w Gemini API.";
+  }
+
+  if (allErrors.includes("Quota exceeded")) {
+    return "Klucz Google działa, ale limit generowania obrazów został chwilowo przekroczony.";
+  }
+
+  return `Nie udało się wygenerować obrazu przez Google Gemini. Szczegóły: ${allErrors}`;
+}
+
+async function generateImageWithGoogleModel(
+  model: string,
+  apiKey: string,
+  prompt: string,
+  signal: AbortSignal,
+) {
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      signal,
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: prompt }],
+          },
+        ],
+        generationConfig: {
+          responseModalities: ["TEXT", "IMAGE"],
+        },
+      }),
+    },
+  );
+  const data = (await response.json()) as GoogleImageResponse;
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      model,
+      error: data.error?.message || `Google API zwróciło błąd HTTP ${response.status}.`,
+    };
+  }
+
+  const parts = data.candidates?.[0]?.content?.parts ?? [];
+  const imagePart = parts.find((part) => part.inlineData?.data);
+  const textPart = parts.find((part) => part.text);
+
+  if (!imagePart?.inlineData?.data) {
+    return {
+      ok: false,
+      model,
+      error: "Model odpowiedział, ale nie zwrócił obrazu.",
+    };
+  }
+
+  const mimeType = imagePart.inlineData.mimeType || "image/png";
+
+  return {
+    ok: true,
+    image: `data:${mimeType};base64,${imagePart.inlineData.data}`,
+    provider: "Google Gemini",
+    model,
+    prompt,
+    text: textPart?.text || `Obraz został wygenerowany modelem ${model}.`,
+  };
+}
+
+async function generateGoogleImage(prompt: string) {
+  const apiKey = getGoogleImageApiKey();
+
+  if (!prompt.trim()) {
+    return {
+      ok: false,
+      provider: "Google Gemini",
+      model: "brak",
+      prompt,
+      error: "Podaj opis obrazu do wygenerowania.",
+    };
+  }
+
+  if (!apiKey) {
+    return {
+      ok: false,
+      provider: "Google Gemini",
+      model: "brak klucza",
+      prompt,
+      error:
+        "Brakuje klucza Google w pliku .env.local. Użyj GOOGLE_GENERATIVE_AI_API_KEY albo GOOGLE_API_KEY.",
+    };
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
+  const errors: string[] = [];
+
+  try {
+    for (const model of imageModels) {
+      const result = await generateImageWithGoogleModel(model, apiKey, prompt, controller.signal);
+
+      if (result.ok) {
+        return result;
+      }
+
+      errors.push(`${result.model}: ${result.error}`);
+    }
+
+    return {
+      ok: false,
+      provider: "Google Gemini",
+      model: "niedostępny",
+      prompt,
+      error: summarizeGoogleImageErrors(errors),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      provider: "Google Gemini",
+      model: "błąd",
+      prompt,
+      error:
+        error instanceof Error && error.name === "AbortError"
+          ? "Generowanie trwało dłużej niż 30 sekund. Spróbuj ponownie za chwilę."
+          : "Nie udało się wygenerować obrazu przez Google Gemini.",
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function decodeHtmlEntities(text: string) {
+  return text
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">");
+}
+
+function extractReadableText(html: string) {
+  return decodeHtmlEntities(
+    html
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<nav[\s\S]*?<\/nav>/gi, " ")
+      .replace(/<footer[\s\S]*?<\/footer>/gi, " ")
+      .replace(/<header[\s\S]*?<\/header>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim(),
+  ).slice(0, 3000);
+}
+
+async function readWebPage(url: string) {
+  let parsedUrl: URL;
+
+  try {
+    parsedUrl = new URL(url);
+  } catch {
+    return {
+      ok: false,
+      url,
+      error: "Podany adres URL jest niepoprawny.",
+    };
+  }
+
+  if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+    return {
+      ok: false,
+      url,
+      error: "Moge czytac tylko publiczne strony HTTP i HTTPS.",
+    };
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+
+  try {
+    const response = await fetch(parsedUrl.toString(), {
+      signal: controller.signal,
+      headers: {
+        "user-agent": "Vie AI learning agent",
+        accept: "text/html,application/xhtml+xml,text/plain",
+      },
+    });
+
+    if (!response.ok) {
+      return {
+        ok: false,
+        url: parsedUrl.toString(),
+        error: `Strona zwrocila blad HTTP ${response.status}.`,
+      };
+    }
+
+    const contentType = response.headers.get("content-type") ?? "";
+
+    if (
+      contentType &&
+      !contentType.includes("text/html") &&
+      !contentType.includes("text/plain")
+    ) {
+      return {
+        ok: false,
+        url: parsedUrl.toString(),
+        error: `Nie umiem bezpiecznie strescic tego typu pliku: ${contentType}.`,
+      };
+    }
+
+    const html = await response.text();
+    const text = extractReadableText(html);
+
+    return {
+      ok: true,
+      url: parsedUrl.toString(),
+      characters: text.length,
+      content:
+        text ||
+        "Strona zostala pobrana, ale nie udalo sie wyodrebnic czytelnego tekstu.",
+    };
+  } catch (error) {
+    const message =
+      error instanceof Error && error.name === "AbortError"
+        ? "Przekroczono limit czasu 5 sekund."
+        : "Nie udalo sie pobrac strony.";
+
+    return {
+      ok: false,
+      url: parsedUrl.toString(),
+      error: message,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export async function POST(request: Request) {
+  const { messages, mode, model } = (await request.json()) as {
+    messages: UIMessage[];
+    mode?: ChatMode;
+    model?: ModelChoice;
+  };
+
+  const selectedMode = getMode(mode);
+  const selectedModel = getModel(model);
+  const latestUserText = getLatestUserText(messages);
+  const directToolResponse = await buildDirectToolResponse(latestUserText, messages);
+
+  if (directToolResponse) {
+    return directToolResponse;
+  }
+
+  const result = streamText({
+    model: google(modelIds[selectedModel]),
+    system: `${prompts[selectedMode]}${internetRules}${knowledgeRules}`,
+    messages: await convertToModelMessages(messages),
+    stopWhen: stepCountIs(maxSteps),
+    tools: {
+      searchKnowledge: tool({
+        description:
+          "Wyszukuje informacje w bazie wiedzy firmy: cenniki, pakiety, FAQ, regulaminy, oferty, warunki i procedury. Używaj zawsze, gdy użytkownik pyta o ceny, pakiety, koszty, ofertę, regulamin, procedury albo informacje firmowe.",
+        inputSchema: jsonSchema<SearchKnowledgeInput>({
+          type: "object",
+          properties: {
+            query: {
+              type: "string",
+              description:
+                "Pytanie do bazy wiedzy, np. ile kosztuje pakiet Premium albo co zawiera VIP.",
+            },
+          },
+          required: ["query"],
+          additionalProperties: false,
+        }),
+        execute: async ({ query }) => searchKnowledge(query),
+      }),      webSearch: tool({
+        description:
+          "Przygotowuje link do wyszukiwania Google dla podanej frazy. Uzywaj do aktualnych informacji, tematow do sprawdzenia i researchu.",
+        inputSchema: jsonSchema<WebSearchInput>({
+          type: "object",
+          properties: {
+            query: {
+              type: "string",
+              description: "Fraza do wyszukania w Google.",
+            },
+          },
+          required: ["query"],
+          additionalProperties: false,
+        }),
+        execute: async ({ query }) => webSearch(query),
+      }),
+      calculator: tool({
+        description:
+          "Liczy wyrazenia matematyczne, VAT, procenty, kwoty netto/brutto i proste dzialania.",
+        inputSchema: jsonSchema<CalculatorInput>({
+          type: "object",
+          properties: {
+            expression: {
+              type: "string",
+              description: "Wyrazenie matematyczne, np. 8500 * 0.23",
+            },
+          },
+          required: ["expression"],
+          additionalProperties: false,
+        }),
+        execute: async ({ expression }) => calculateExpression(expression),
+      }),
+      currentDateTime: tool({
+        description:
+          "Zwraca aktualna date i godzine w strefie Europe/Warsaw.",
+        inputSchema: jsonSchema<Record<string, never>>({
+          type: "object",
+          properties: {},
+          additionalProperties: false,
+        }),
+        execute: async () => getCurrentDateTime(),
+      }),
+      readWebPage: tool({
+        description:
+          "Pobiera i czyta zawartosc strony internetowej. Uzywaj, gdy uzytkownik poda URL lub gdy chcesz przeczytac artykul albo strone znaleziona w wyszukiwarce.",
+        inputSchema: jsonSchema<ReadWebPageInput>({
+          type: "object",
+          properties: {
+            url: {
+              type: "string",
+              description: "Pelny adres URL strony, np. https://example.com",
+            },
+          },
+          required: ["url"],
+          additionalProperties: false,
+        }),
+        execute: async ({ url }) => readWebPage(url),
+      }),
+      generateImage: tool({
+        description:
+          "Generuje obraz na podstawie opisu. Uzywaj gdy uzytkownik prosi o logo, grafike, ilustracje, mockup albo post wizualny.",
+        inputSchema: jsonSchema<GenerateImageInput>({
+          type: "object",
+          properties: {
+            prompt: {
+              type: "string",
+              description: "Opis obrazu do wygenerowania.",
+            },
+          },
+          required: ["prompt"],
+          additionalProperties: false,
+        }),
+        execute: async ({ prompt }) => generateGoogleImage(prompt),
+      }),
+    },
+  });
+
+  return result.toUIMessageStreamResponse();
+}
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,241 @@
+"use client";
+
+import Link from "next/link";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
+import { DefaultChatTransport, type UIMessage } from "ai";
+import { useChat } from "@ai-sdk/react";
+
+const sampleQuestions = [
+  "Jakie są najnowsze wiadomości o sztucznej inteligencji?",
+  "Ile kosztuje iPhone 16 Pro w Polsce?",
+  "Kto wygrał ostatni mecz reprezentacji Polski?",
+  "Jakie filmy są teraz w kinach?",
+  "Przeczytaj tę stronę: https://pl.wikipedia.org/wiki/Sztuczna_inteligencja",
+];
+
+function messageText(message: UIMessage) {
+  return message.parts
+    .filter((part) => part.type === "text")
+    .map((part) => part.text)
+    .join("");
+}
+
+function messageSources(message: UIMessage) {
+  return message.parts
+    .filter((part) => part.type === "source-url")
+    .map((part) => ({
+      id: part.sourceId,
+      title: part.title ?? part.url,
+      url: part.url,
+    }));
+}
+
+function renderInline(text: string) {
+  const parts: ReactNode[] = [];
+  const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = linkRegex.exec(text)) !== null) {
+    const [fullMatch, label, url] = match;
+
+    if (match.index > lastIndex) {
+      parts.push(
+        <Fragment key={`text-${lastIndex}`}>
+          {text.slice(lastIndex, match.index)}
+        </Fragment>,
+      );
+    }
+
+    parts.push(
+      <a href={url} key={`${url}-${match.index}`} target="_blank" rel="noreferrer">
+        {label}
+      </a>,
+    );
+
+    lastIndex = match.index + fullMatch.length;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(<Fragment key={`text-${lastIndex}`}>{text.slice(lastIndex)}</Fragment>);
+  }
+
+  return parts.length ? parts : text;
+}
+
+function renderAnswer(text: string) {
+  return text.split("\n").map((line, index) => (
+    <Fragment key={`${line}-${index}`}>
+      {renderInline(line)}
+      {index < text.split("\n").length - 1 ? <br /> : null}
+    </Fragment>
+  ));
+}
+
+export default function SearchPage() {
+  const [input, setInput] = useState("");
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  const {
+    messages,
+    sendMessage,
+    status,
+    stop,
+    error,
+    clearError,
+    setMessages,
+  } = useChat({
+    transport: new DefaultChatTransport({
+      api: "/api/chat",
+    }),
+  });
+
+  const isLoading = status === "submitted" || status === "streaming";
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const trimmed = input.trim();
+
+    if (!trimmed || isLoading) {
+      return;
+    }
+
+    setInput("");
+    await sendMessage({ text: trimmed });
+  }
+
+  function useSampleQuestion(question: string) {
+    setInput(question);
+  }
+
+  return (
+    <main className="chat-shell">
+      <section className="chat-card" aria-label="Agent z wyszukiwarka">
+        <nav className="top-nav" aria-label="Nawigacja">
+          <Link href="/agent">Agent</Link>
+          <Link href="/">🤖 Chat</Link>
+          <Link href="/react">🔄 ReAct</Link>
+          <Link href="/think">🧠 Myślenie</Link>
+          <Link href="/fewshot">📚 Słownik</Link>
+          <Link href="/format">📐 Formater</Link>
+          <Link className="active" href="/search">
+            🌐 Szukaj
+          </Link>
+          <Link href="/generate">Grafiki</Link>
+          <Link href="/wash">🚗 Myjnia</Link>
+          <Link href="/wash-site">🌐 Strona myjni</Link>
+        </nav>
+
+        <header className="chat-header">
+          <div>
+            <p className="eyebrow">Lekcja 3 · Warsztat 1</p>
+            <h1>🌐 Agent z wyszukiwarką</h1>
+            <p className="subtitle">
+              Przeszukuję prawdziwy internet i czytam strony. Podaj pytanie
+              aktualne albo wklej link do strony, którą mam streścić.
+            </p>
+            <div className="sample-questions" aria-label="Przykładowe pytania">
+              {sampleQuestions.map((question) => (
+                <button
+                  key={question}
+                  type="button"
+                  onClick={() => useSampleQuestion(question)}
+                >
+                  {question}
+                </button>
+              ))}
+            </div>
+          </div>
+        </header>
+
+        <section className="messages" aria-live="polite">
+          {messages.length === 0 && (
+            <div className="empty-state">
+              <p>
+                Zapytaj o coś aktualnego albo wklej adres strony. Agent może
+                użyć Google Search oraz narzędzia do czytania stron WWW.
+              </p>
+            </div>
+          )}
+
+          {messages.map((message) => {
+            const sources = message.role === "assistant" ? messageSources(message) : [];
+
+            return (
+              <article
+                className={`message ${message.role}`}
+                key={message.id}
+                aria-label={message.role === "user" ? "Użytkownik" : "Agent AI"}
+              >
+                {message.role === "assistant" && (
+                  <span className="badge expert">🌐 internet</span>
+                )}
+                <div className="bubble search-bubble">{renderAnswer(messageText(message))}</div>
+                {sources.length > 0 && (
+                  <div className="source-list" aria-label="Źródła">
+                    <strong>Źródła:</strong>
+                    {sources.map((source) => (
+                      <a
+                        href={source.url}
+                        key={source.id}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {source.title}
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </article>
+            );
+          })}
+
+          {isLoading && (
+            <article className="message assistant">
+              <span className="badge expert">🌐 internet</span>
+              <div className="bubble thinking">Szukam i sprawdzam źródła...</div>
+            </article>
+          )}
+
+          <div ref={bottomRef} />
+        </section>
+
+        {error && (
+          <div className="error-box">
+            <p>Coś poszło nie tak: {error.message}</p>
+            <button type="button" onClick={clearError}>
+              Wyczyść błąd
+            </button>
+          </div>
+        )}
+
+        <form className="composer" onSubmit={handleSubmit}>
+          <textarea
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            placeholder="Zapytaj o cokolwiek aktualnego..."
+            rows={3}
+          />
+          <div className="composer-actions">
+            <button type="button" onClick={() => setMessages([])} disabled={isLoading}>
+              Nowa rozmowa
+            </button>
+            {isLoading ? (
+              <button type="button" onClick={stop}>
+                Stop
+              </button>
+            ) : (
+              <button type="submit" disabled={isLoading || !input.trim()}>
+                Wyślij
+              </button>
+            )}
+          </div>
+        </form>
+      </section>
+    </main>
+  );
+}

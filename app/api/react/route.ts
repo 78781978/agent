@@ -1266,7 +1266,7 @@ function buildWeekendRecommendation({
 
 function shouldUseDirectReact(text: string) {
   return (
-    includesAny(text, ["pogod", "świę", "swiet", "wikipedia", "weekend"]) ||
+    includesAny(text, ["pogod", "świę", "swiet", "wikipedia", "weekend", "react", "definicj", "zastosowania"]) ||
     includesAny(text, ["eur", "usd", "chf", "gbp", "xyz", "walut", "kurs", "przelicz", "oblicz", "policz"])
   );
 }

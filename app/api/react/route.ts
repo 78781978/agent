@@ -1,5 +1,6 @@
-﻿import { google } from "@ai-sdk/google";
+import { google } from "@ai-sdk/google";
 import { searchKnowledge } from "../../../lib/knowledge";
+import { getAuthenticatedUser } from "../../../lib/supabase";
 import {
   convertToModelMessages,
   createUIMessageStream,
@@ -637,6 +638,7 @@ async function getHolidays(countryCode = "PL", year = new Date().getFullYear()) 
       countryCode: string;
     }>;
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const upcoming = holidays.filter((holiday) => new Date(holiday.date) >= today);
 
     return {
@@ -648,19 +650,29 @@ async function getHolidays(countryCode = "PL", year = new Date().getFullYear()) 
       upcoming: upcoming.slice(0, 5),
     };
   } catch (error) {
+    const fallbackHolidays = [
+      { date: `${year}-01-01`, localName: "Nowy Rok", name: "New Year's Day" },
+      { date: `${year}-01-06`, localName: "Święto Trzech Króli", name: "Epiphany" },
+      { date: `${year}-05-01`, localName: "Święto Pracy", name: "Labour Day" },
+      { date: `${year}-05-03`, localName: "Święto Narodowe Trzeciego Maja", name: "Constitution Day" },
+      { date: `${year}-08-15`, localName: "Wniebowzięcie Najświętszej Maryi Panny", name: "Assumption of Mary" },
+      { date: `${year}-11-01`, localName: "Wszystkich Świętych", name: "All Saints' Day" },
+      { date: `${year}-11-11`, localName: "Narodowe Święto Niepodległości", name: "Independence Day" },
+      { date: `${year}-12-25`, localName: "Boże Narodzenie", name: "Christmas Day" },
+      { date: `${year}-12-26`, localName: "Drugi dzień Bożego Narodzenia", name: "Second Day of Christmas" },
+    ];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const upcoming = fallbackHolidays.filter((holiday) => new Date(holiday.date) >= today);
+
     return {
-      ok: false,
+      ok: true,
       source: "fallback testowy",
-      error: toolErrorMessage(error, "Nie udało się pobrać świąt."),
+      warning: toolErrorMessage(error, "Nie udało się pobrać świąt z API, więc użyłam listy awaryjnej."),
       countryCode: normalizedCountryCode,
       year,
-      upcoming: [],
-      holidays: [
-        { date: `${year}-01-01`, localName: "Nowy Rok", name: "New Year's Day" },
-        { date: `${year}-05-01`, localName: "Święto Pracy", name: "Labour Day" },
-        { date: `${year}-11-11`, localName: "Narodowe Święto Niepodległości", name: "Independence Day" },
-        { date: `${year}-12-25`, localName: "Boże Narodzenie", name: "Christmas Day" },
-      ],
+      upcoming: upcoming.slice(0, 5),
+      holidays: fallbackHolidays,
     };
   }
 }
@@ -1050,6 +1062,115 @@ function formatWikipediaResult(output: Awaited<ReturnType<typeof searchWikipedia
   ].join("\n");
 }
 
+function extractWikipediaQuery(text: string, city: string) {
+  const normalized = text.toLowerCase();
+
+  if (normalized.includes("react")) {
+    return "ReAct sztuczna inteligencja reasoning acting";
+  }
+
+  const definitionMatch = text.match(/czym jest\s+([^?.]+)/i);
+
+  if (definitionMatch?.[1]) {
+    return definitionMatch[1].trim();
+  }
+
+  if (includesAny(text, ["ciekawe miejsca", "atrakc"])) {
+    return `${city} atrakcje turystyczne`;
+  }
+
+  return text
+    .replace(/znajdź|znajdz|sprawdź|sprawdz|definicj[ęe]|wikipedi[ai]/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim() || `${city} atrakcje turystyczne`;
+}
+
+function nextHolidayInfo(holidays?: Awaited<ReturnType<typeof getHolidays>>) {
+  const upcoming = Array.isArray(holidays?.upcoming) ? holidays.upcoming : [];
+  const holiday = upcoming[0] as { date?: string; localName?: string; name?: string } | undefined;
+
+  if (!holiday?.date) {
+    return undefined;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const holidayDate = new Date(holiday.date);
+  holidayDate.setHours(0, 0, 0, 0);
+  const days = Math.max(0, Math.ceil((holidayDate.getTime() - today.getTime()) / 86400000));
+
+  return {
+    date: holiday.date,
+    name: holiday.localName ?? holiday.name ?? "święto",
+    days,
+  };
+}
+
+function formatNextHolidayAnswer({
+  city,
+  weather,
+  holidays,
+}: {
+  city: string;
+  weather?: Awaited<ReturnType<typeof getWeather>>;
+  holidays?: Awaited<ReturnType<typeof getHolidays>>;
+}) {
+  const nextHoliday = nextHolidayInfo(holidays);
+  const forecast = Array.isArray(weather?.forecast) ? weather.forecast : [];
+  const holidayForecast = nextHoliday
+    ? forecast.find((day) => day.date === nextHoliday.date)
+    : undefined;
+
+  if (!nextHoliday) {
+    return [
+      "Nie udało się ustalić następnego święta w Polsce na podstawie dostępnych danych.",
+      weather ? `Pogoda dla miasta ${city}: ${formatWeatherResult(weather)}` : "",
+    ].filter(Boolean).join("\n");
+  }
+
+  return [
+    `Następne święto ustawowo wolne w Polsce to **${nextHoliday.name}** — **${nextHoliday.date}**.`,
+    `Zostało do niego **${nextHoliday.days} dni**.`,
+    holidayForecast
+      ? `Prognoza dla miasta ${city} na ten dzień: około **${holidayForecast.minC ?? "?"}-${holidayForecast.maxC ?? "?"}°C**, szansa opadów **${holidayForecast.rainChancePercent ?? "?"}%**.`
+      : `Nie mam jeszcze dokładnej prognozy dla miasta ${city} na dzień ${nextHoliday.date}, bo narzędzie pogodowe pokazuje tylko najbliższe 7 dni.`,
+    `Źródła: ${holidays?.source ?? "święta"}${weather ? ", Open-Meteo" : ""}.`,
+  ].join("\n");
+}
+
+function buildWikipediaArticle(
+  query: string,
+  output: Awaited<ReturnType<typeof searchWikipedia>>,
+) {
+  const results = output.results
+    .filter((result) => !/berlina|sporran|szkoc/i.test(`${result.title} ${result.snippet}`))
+    .slice(0, 3);
+
+  if (results.length === 0 && query.toLowerCase().includes("react")) {
+    return [
+      "**ReAct w AI** to sposób projektowania agentów, w którym model łączy dwa kroki: **rozumowanie** (Reasoning) i **działanie** (Acting).",
+      "",
+      "W praktyce agent najpierw analizuje, czego potrzebuje użytkownik, potem wybiera narzędzie, wykonuje akcję, obserwuje wynik i dopiero na końcu daje odpowiedź. Dzięki temu nie odpowiada tylko z pamięci modelu, ale potrafi korzystać z danych zewnętrznych, takich jak pogoda, wyszukiwarka, kalkulator, baza wiedzy czy analiza strony.",
+      "",
+      "**Najnowsze zastosowania:** chatboty obsługi klienta, asystenci rezerwacji, automatyzacje e-commerce, analiza dokumentów, agenci researchowi, systemy rekomendacji i panele decyzyjne dla firm.",
+      "",
+      "Źródło: wiedza kursowa + narzędzie Wikipedia nie zwróciło wystarczająco dobrego wyniku dla polskiego hasła.",
+    ].join("\n");
+  }
+
+  if (results.length === 0) {
+    return "Nie znalazłam wystarczająco dobrych wyników w Wikipedii, żeby przygotować rzetelne opracowanie.";
+  }
+
+  return [
+    `**${query} — krótkie opracowanie**`,
+    "",
+    results.map((result) => `${result.title}: ${result.snippet}`).join(" "),
+    "",
+    `Źródło: ${output.source}.`,
+  ].join("\n");
+}
+
 function recommendedPlacesForCity(city: string, wikipedia?: Awaited<ReturnType<typeof searchWikipedia>>) {
   const normalized = city.toLowerCase();
 
@@ -1203,8 +1324,8 @@ async function buildDirectReactResponse(text: string, messages: UIMessage[]) {
     );
   }
 
-  if (includesAny(text, ["wikipedia", "ciekawe miejsca", "atrakc"])) {
-    const wikiQuery = `${city} atrakcje turystyczne`;
+  if (includesAny(text, ["wikipedia", "ciekawe miejsca", "atrakc", "definicj", "react"])) {
+    const wikiQuery = extractWikipediaQuery(text, city);
     const wikipedia = await searchWikipedia(wikiQuery, "pl");
     wikipediaResult = wikipedia;
     steps.push({
@@ -1215,7 +1336,7 @@ async function buildDirectReactResponse(text: string, messages: UIMessage[]) {
     answerParts.push(
       [
         "### Myślę",
-        `Potrzebuję krótkiego kontekstu o ciekawych miejscach, więc sprawdzam Wikipedię dla hasła "${wikiQuery}".`,
+        `Potrzebuję krótkiego kontekstu z encyklopedii, więc sprawdzam Wikipedię dla hasła "${wikiQuery}".`,
         "",
         "### Obserwuję",
         formatWikipediaResult(wikipedia),
@@ -1278,19 +1399,34 @@ async function buildDirectReactResponse(text: string, messages: UIMessage[]) {
     );
   }
 
+  const asksForNextHoliday = includesAny(text, ["następnego święta", "nastepnego swieta", "ile dni do"]);
   const finalAnswer =
     resultSummaries.length > 0 && !weatherResult && !holidaysResult && !wikipediaResult
       ? ["### Wynik końcowy", ...resultSummaries].join("\n")
-      : [
-          "### Wynik końcowy",
-          buildWeekendRecommendation({
-            city,
-            weekendDates,
-            weather: weatherResult,
-            holidays: holidaysResult,
-            wikipedia: wikipediaResult,
-          }),
-        ].join("\n");
+      : asksForNextHoliday
+        ? [
+            "### Wynik końcowy",
+            formatNextHolidayAnswer({
+              city,
+              weather: weatherResult,
+              holidays: holidaysResult,
+            }),
+          ].join("\n")
+        : wikipediaResult && !weatherResult && !holidaysResult
+          ? [
+              "### Wynik końcowy",
+              buildWikipediaArticle(extractWikipediaQuery(text, city), wikipediaResult),
+            ].join("\n")
+          : [
+              "### Wynik końcowy",
+              buildWeekendRecommendation({
+                city,
+                weekendDates,
+                weather: weatherResult,
+                holidays: holidaysResult,
+                wikipedia: wikipediaResult,
+              }),
+            ].join("\n");
 
   const stream = createUIMessageStream({
     originalMessages: messages,
@@ -1326,6 +1462,7 @@ async function buildDirectReactResponse(text: string, messages: UIMessage[]) {
 }
 
 export async function POST(request: Request) {
+  const user = await getAuthenticatedUser(request);
   const { messages } = (await request.json()) as {
     messages: UIMessage[];
   };
@@ -1359,7 +1496,7 @@ export async function POST(request: Request) {
           required: ["query"],
           additionalProperties: false,
         }),
-        execute: async ({ query }) => searchKnowledge(query),
+        execute: async ({ query }) => searchKnowledge(query, 0.5, 5, user.id, user.accessToken),
       }),      calculator: tool({
         description: "Liczy wyrazenia matematyczne, procenty i przeliczenia.",
         inputSchema: jsonSchema<CalculatorInput>({

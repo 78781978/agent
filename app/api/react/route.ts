@@ -558,6 +558,19 @@ async function getExchangeRate(target: string, base = "PLN", amount = 1) {
     };
   }
 
+  if (normalizedBase === normalizedTarget) {
+    return {
+      ok: true,
+      source: "przeliczenie lokalne",
+      date: new Date().toISOString().slice(0, 10),
+      base: normalizedBase,
+      target: normalizedTarget,
+      rate: 1,
+      amount,
+      converted: amount,
+    };
+  }
+
   try {
     const url = new URL(`https://api.frankfurter.app/latest`);
     url.searchParams.set("from", normalizedBase);
@@ -595,9 +608,12 @@ async function getExchangeRate(target: string, base = "PLN", amount = 1) {
     const rate = baseRate && targetRate ? baseRate / targetRate : undefined;
 
     return {
-      ok: false,
+      ok: Boolean(rate),
       source: "fallback testowy",
-      error: toolErrorMessage(error, "Nie udało się pobrać kursu."),
+      warning: rate
+        ? toolErrorMessage(error, "API walut nie odpowiedziało, więc użyłam kursu awaryjnego.")
+        : undefined,
+      error: rate ? undefined : toolErrorMessage(error, "Nie udało się pobrać kursu."),
       base: normalizedBase,
       target: normalizedTarget,
       rate,
@@ -1345,25 +1361,36 @@ async function buildDirectReactResponse(text: string, messages: UIMessage[]) {
   }
 
   if (includesAny(text, ["eur", "usd", "chf", "gbp", "xyz", "walut", "kurs", "przelicz"])) {
-    const amount = Number(text.match(/\d+(?:[,.]\d+)?/)?.[0]?.replace(",", ".") ?? "1");
+    const amountMatch = text.toUpperCase().match(/(\d+(?:[,.]\d+)?)\s*([A-Z]{3})?/);
+    const amount = Number(amountMatch?.[1]?.replace(",", ".") ?? "1");
     const explicitCurrencyMatches = text.toUpperCase().match(/\b[A-Z]{3}\b/g) ?? [];
     const explicitCurrencies = explicitCurrencyMatches.filter((currency) =>
       supportedCurrencies.has(currency),
     );
-    const targets = ["EUR", "USD", "CHF", "GBP", ...explicitCurrencies]
-      .filter((currency) => text.toUpperCase().includes(currency))
+    const detectedBase =
+      amountMatch?.[2] && supportedCurrencies.has(amountMatch[2]) ? amountMatch[2] : "PLN";
+    const defaultTargets =
+      detectedBase === "PLN"
+        ? ["EUR", "USD", "CHF", "GBP"]
+        : ["PLN", text.toLowerCase().includes("dolar") ? "USD" : ""];
+    const targets = [...explicitCurrencies, ...defaultTargets]
+      .filter((currency) => currency !== detectedBase)
       .filter((currency, index, array) => currency && array.indexOf(currency) === index);
-    const currencies = targets.length > 0 ? targets : ["EUR", "USD", "CHF"];
+    const currencies = targets.length > 0 ? targets : detectedBase === "PLN" ? ["EUR", "USD", "CHF"] : ["PLN"];
     const results = [];
 
     for (const currency of currencies) {
-      const rate = await getExchangeRate(currency, "PLN", amount);
+      const rate = await getExchangeRate(currency, detectedBase, amount);
       steps.push({
         toolName: "getExchangeRate",
-        input: { base: "PLN", target: currency, amount },
+        input: { base: detectedBase, target: currency, amount },
         output: rate,
       });
-      results.push(rate.error ? `${currency}: ${rate.error}` : `${amount} PLN = ${rate.converted ?? "?"} ${currency}`);
+      results.push(
+        rate.error
+          ? `${currency}: ${rate.error}`
+          : `${amount} ${detectedBase} = ${rate.converted ?? "?"} ${currency}`,
+      );
     }
 
     const note = saveNote("Przeliczenie walut ReAct", results.join("\n"));

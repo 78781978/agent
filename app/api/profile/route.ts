@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getAuthenticatedUser, supabaseRequest } from "../../../lib/supabase";
 
 type Profile = {
@@ -35,6 +35,10 @@ async function upsertProfile(
   return rows[0] ?? null;
 }
 
+function profileStatus(error: unknown) {
+  return error instanceof Error && error.message.includes("zalogować") ? 401 : 500;
+}
+
 export async function GET(request: Request) {
   try {
     const user = await getAuthenticatedUser(request);
@@ -43,7 +47,7 @@ export async function GET(request: Request) {
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Błąd profilu" },
-      { status: error instanceof Error && error.message.includes("zalogować") ? 401 : 500 },
+      { status: profileStatus(error) },
     );
   }
 }
@@ -62,7 +66,7 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Błąd profilu" },
-      { status: error instanceof Error && error.message.includes("zalogować") ? 401 : 500 },
+      { status: profileStatus(error) },
     );
   }
 }
@@ -74,7 +78,6 @@ export async function PATCH(request: Request) {
       name?: string;
       preference?: { key: string; value: string };
     };
-
     const currentProfile = (await getProfile(user.id, user.accessToken)) ?? {
       id: user.id,
       name: null,
@@ -96,7 +99,7 @@ export async function PATCH(request: Request) {
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Błąd profilu" },
-      { status: error instanceof Error && error.message.includes("zalogować") ? 401 : 500 },
+      { status: profileStatus(error) },
     );
   }
 }

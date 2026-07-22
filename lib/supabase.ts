@@ -81,22 +81,20 @@ export async function supabaseRequest<T>(
 ): Promise<T> {
   requireSupabaseConfig();
   const serverKey = process.env.SUPABASE_SERVICE_ROLE_KEY || supabaseKey;
+  const apiKey = accessToken ? supabaseKey : serverKey;
 
   const response = await fetch(`${supabaseUrl}/rest/v1/${path}`, {
     ...init,
     cache: "no-store",
     headers: {
-      apikey: supabaseKey!,
+      apikey: apiKey!,
       Authorization: `Bearer ${accessToken || serverKey}`,
       "Content-Type": "application/json",
       ...init.headers,
     },
   });
 
-  if (!response.ok) {
-    throw new Error(`Supabase ${response.status}: ${await response.text()}`);
-  }
-
+  if (!response.ok) throw new Error(`Supabase ${response.status}: ${await response.text()}`);
   const text = await response.text();
   if (!text.trim()) return undefined as T;
   return JSON.parse(text) as T;

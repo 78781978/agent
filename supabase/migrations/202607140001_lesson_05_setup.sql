@@ -1,6 +1,3 @@
--- Lekcja 7 / W3: Supabase Auth + prywatne dane użytkowników.
--- Uruchom ten plik w Supabase SQL Editor przed testem logowania.
-
 alter table public.conversations
   add column if not exists user_id uuid references auth.users(id) on delete cascade;
 

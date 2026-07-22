@@ -1,10 +1,8 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { AppNav } from "../../components/AppNav";
 import { Fragment, useEffect, useRef, useState } from "react";
-import { DefaultChatTransport, type UIMessage } from "ai";
-import { useChat } from "@ai-sdk/react";
 
 const formatCommands = [
   "/tabela języki programowania 2026",
@@ -14,11 +12,14 @@ const formatCommands = [
   "/email podziękowanie za udaną rekrutację",
 ];
 
-function messageText(message: UIMessage) {
-  return message.parts
-    .filter((part) => part.type === "text")
-    .map((part) => part.text)
-    .join("");
+type FormatMessage = {
+  id: string;
+  role: "user" | "assistant";
+  text: string;
+};
+
+function messageText(message: FormatMessage) {
+  return message.text;
 }
 
 function renderInline(text: string) {
@@ -159,16 +160,10 @@ function renderMarkdown(text: string) {
 
 export default function FormatPage() {
   const [input, setInput] = useState(formatCommands[0]);
+  const [messages, setMessages] = useState<FormatMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
-
-  const { messages, sendMessage, status, error, clearError, setMessages, stop } =
-    useChat({
-      transport: new DefaultChatTransport({
-        api: "/api/format",
-      }),
-    });
-
-  const isLoading = status === "submitted" || status === "streaming";
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -182,8 +177,61 @@ export default function FormatPage() {
       return;
     }
 
+    const userMessage: FormatMessage = {
+      id: crypto.randomUUID(),
+      role: "user",
+      text: trimmed,
+    };
+
     setInput("");
-    await sendMessage({ text: trimmed });
+    setError(null);
+    setIsLoading(true);
+    setMessages((current) => [...current, userMessage]);
+
+    try {
+      const response = await fetch("/api/format", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          messages: [
+            ...messages.map((message) => ({
+              role: message.role,
+              parts: [{ type: "text", text: message.text }],
+            })),
+            {
+              role: userMessage.role,
+              parts: [{ type: "text", text: userMessage.text }],
+            },
+          ],
+        }),
+      });
+      const data = (await response.json()) as { text?: string; error?: string };
+
+      if (!response.ok || !data.text) {
+        throw new Error(data.error || "Formater nie zwrócił odpowiedzi.");
+      }
+
+      const formattedText = data.text;
+
+      setMessages((current) => [
+        ...current,
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          text: formattedText,
+        },
+      ]);
+    } catch (submitError) {
+      setError(
+        submitError instanceof Error
+          ? submitError.message
+          : "Nie udało się połączyć z formaterem.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -256,8 +304,8 @@ export default function FormatPage() {
 
         {error && (
           <div className="error-box">
-            <p>{error.message}</p>
-            <button type="button" onClick={clearError}>
+            <p>{error}</p>
+            <button type="button" onClick={() => setError(null)}>
               Zamknij
             </button>
           </div>
@@ -282,15 +330,9 @@ export default function FormatPage() {
             placeholder="/tabela temat albo /porownanie A vs B..."
             value={input}
           />
-          {isLoading ? (
-            <button type="button" onClick={stop}>
-              Stop
-            </button>
-          ) : (
-            <button type="submit" disabled={isLoading || !input.trim()}>
-              Formatuj
-            </button>
-          )}
+          <button type="submit" disabled={isLoading || !input.trim()}>
+            {isLoading ? "Formatuję..." : "Formatuj"}
+          </button>
         </form>
       </section>
     </main>

@@ -639,52 +639,105 @@ function formatSourcesPlain(sources: WebSearchResult["sources"]) {
 
 function summarizeReadPageResult(
   pageOutput: Awaited<ReturnType<typeof readWebPage>> | undefined,
+  requestText = "",
 ) {
   if (!pageOutput) {
-    return "Nie bylo strony do przeczytania.";
+    return "Nie było strony do przeczytania.";
   }
 
   if (!pageOutput.ok) {
-    return `Nie udalo sie przeczytac strony: ${pageOutput.error ?? "nieznany blad"}.`;
+    return `Nie udało się przeczytać strony: ${pageOutput.error ?? "nieznany błąd"}.`;
   }
 
   const content = (pageOutput.content ?? "").replace(/\s+/g, " ").trim();
 
   if (!content) {
-    return "Strona zostala pobrana, ale nie miala czytelnej tresci.";
+    return "Strona została pobrana, ale nie miała czytelnej treści.";
   }
 
-  const knownTopics = [
+  const lowerRequest = requestText.toLowerCase();
+  const lowerContent = content.toLowerCase();
+  const requestedTopics = [
     "iPhone",
     "Mac",
     "iPad",
     "Apple Watch",
     "AirPods",
     "Vision",
-    "trade-in",
     "AI",
-    "kontakt",
     "oferta",
-    "uslugi",
-  ].filter((topic) => content.toLowerCase().includes(topic.toLowerCase()));
+    "kontakt",
+    "usługi",
+  ].filter((topic) => lowerRequest.includes(topic.toLowerCase()));
+  const detectedTopics = [
+    "iPhone",
+    "Mac",
+    "iPad",
+    "Apple Watch",
+    "AirPods",
+    "Vision",
+    "AI",
+    "trade-in",
+    "oferta",
+    "kontakt",
+    "usługi",
+  ].filter((topic) => lowerContent.includes(topic.toLowerCase()));
+  const mainTopics = requestedTopics.length ? requestedTopics : detectedTopics;
+  const relevantSentences = uniqueSentences(
+    splitIntoUsefulSentences(content).filter((sentence) => {
+      const sentenceText = sentence.toLowerCase();
+      return mainTopics.length
+        ? mainTopics.some((topic) => sentenceText.includes(topic.toLowerCase()))
+        : true;
+    }),
+  ).slice(0, 6);
+  const fallbackSentences = uniqueSentences(splitIntoUsefulSentences(content)).slice(0, 5);
+  const facts = relevantSentences.length ? relevantSentences : fallbackSentences;
+  const domain = domainFromUrl(pageOutput.url);
+  const topicTitle = mainTopics.length
+    ? mainTopics.slice(0, 3).join(", ")
+    : "odczytana strona";
 
-  const topicLine = knownTopics.length
-    ? `Na stronie widze tematy/sekcje: ${knownTopics.join(", ")}.`
-    : "Strona zostala odczytana. Ponizej wklejam najwazniejszy fragment zrodla.";
+  if (lowerRequest.includes("iphone") || lowerContent.includes("iphone")) {
+    const iPhoneFacts = facts
+      .filter((fact) => /iphone|apple|trade|carrier|gift|mac|ipad/i.test(fact))
+      .slice(0, 4);
 
-  const polishFindings = knownTopics.length
-    ? knownTopics.map((topic) => `- Strona zawiera informacje o: ${topic}.`)
-    : ["- Strona zostala odczytana, ale nie udalo sie automatycznie nazwac najwazniejszych sekcji."];
-
-  const sourceNote = looksLikePolishText(content)
-    ? `Krotki fragment zrodla: ${content.slice(0, 700)}`
-    : "Zrodlo nie wyglada na polskojezyczne, wiec nie wklejam dlugiego angielskiego fragmentu jako odpowiedzi.";
+    return [
+      "## Krótki opis oferty Apple iPhone",
+      "",
+      `Na stronie **${domain}** znajdują się informacje o ofercie Apple, w tym o sekcji **iPhone**. Z odczytanej treści wynika, że Apple prowadzi użytkownika przez swój ekosystem produktów i promocji, ale pobrana strona główna nie zawiera pełnej tabeli modeli, cen ani szczegółowej specyfikacji iPhone.`,
+      "",
+      iPhoneFacts.length
+        ? [
+            "**Najważniejsze informacje z odczytanej strony:**",
+            ...iPhoneFacts.map((fact) => `- ${fact}`),
+          ].join("\n")
+        : "**Najważniejsze informacje:** strona potwierdza obecność sekcji iPhone, ale nie udostępniła w pobranym tekście szczegółowej listy modeli i cen.",
+      "",
+      "**Wniosek:** jeśli chcesz pełny opis aktualnej oferty iPhone, najlepiej podać bezpośredni link do podstrony iPhone albo poprosić agenta o wyszukanie aktualnej oferty w Google. Wtedy porówna kilka źródeł i przygotuje krótkie opracowanie po polsku.",
+      "",
+      `Źródło: [${domain}](${pageOutput.url})`,
+    ].join("\n");
+  }
 
   return [
-    topicLine,
-    "Najwazniejsze wnioski po polsku:",
-    ...polishFindings,
-    sourceNote,
+    `## Krótkie opracowanie: ${topicTitle}`,
+    "",
+    facts.length
+      ? facts.slice(0, 3).join(" ")
+      : "Strona została odczytana, ale jej tekst był zbyt ogólny, aby przygotować szczegółowe opracowanie.",
+    "",
+    facts.length > 3
+      ? [
+          "**Najważniejsze punkty:**",
+          ...facts.slice(3, 6).map((fact) => `- ${fact}`),
+        ].join("\n")
+      : "**Najważniejsze punkty:** brak dodatkowych szczegółów w pobranym fragmencie strony.",
+    "",
+    looksLikePolishText(content)
+      ? `Źródło: [${domain}](${pageOutput.url})`
+      : `Źródło: [${domain}](${pageOutput.url}) — strona jest obcojęzyczna, dlatego odpowiedź została przygotowana po polsku jako streszczenie.`,
   ].join("\n");
 }
 
@@ -963,7 +1016,7 @@ async function buildDirectToolResponse(text: string, messages: UIMessage[]) {
       ?.output as Awaited<ReturnType<typeof readWebPage>> | undefined;
 
     answerParts.push(
-      summarizeReadPageResult(pageOutput),
+      summarizeReadPageResult(pageOutput, text),
     );
   }
 

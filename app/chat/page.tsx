@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { AppNav } from "../../components/AppNav";
@@ -142,7 +142,6 @@ export default function Home() {
   const [persistenceError, setPersistenceError] = useState("");
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
-  const [userId, setUserId] = useState("");
   const [userName, setUserName] = useState("");
   const [preferences, setPreferences] = useState<Record<string, string>>({});
   const [lastConversationMemory, setLastConversationMemory] = useState("");
@@ -272,20 +271,13 @@ export default function Home() {
     let active = true;
     async function loadProfile() {
       try {
-        let id = localStorage.getItem("user_id");
-        if (!id) {
-          id = crypto.randomUUID();
-          localStorage.setItem("user_id", id);
-        }
-        setUserId(id);
-        let response = await fetch(`/api/profile?userId=${encodeURIComponent(id)}`);
+        let response = await fetch("/api/profile", { cache: "no-store" });
         let data = await readJsonResponse(response);
         if (!response.ok) throw new Error(data.error || "Nie udało się pobrać profilu.");
         if (!data.profile) {
           response = await fetch("/api/profile", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userId: id }),
           });
           data = await readJsonResponse(response);
           if (!response.ok) throw new Error(data.error || "Nie udało się utworzyć profilu.");
@@ -295,7 +287,7 @@ export default function Home() {
           setPreferences(data.profile.preferences || {});
         }
       } catch (profileError) {
-        if (active) setPersistenceError(profileError instanceof Error ? profileError.message : "Błąd profilu.");
+        console.warn("Profil nie został wczytany, ale czat działa dalej.", profileError);
       } finally {
         if (active) setProfileLoading(false);
       }
@@ -305,16 +297,19 @@ export default function Home() {
   }, []);
 
   async function updateProfile(update: { name?: string; preference?: { key: string; value: string } }) {
-    if (!userId) return;
-    const response = await fetch("/api/profile", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, ...update }),
-    });
-    const data = await readJsonResponse(response);
-    if (!response.ok) throw new Error(data.error || "Nie udało się zapisać profilu.");
-    setUserName(data.profile.name || "");
-    setPreferences(data.profile.preferences || {});
+    try {
+      const response = await fetch("/api/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(update),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok) throw new Error(data.error || "Nie udało się zapisać profilu.");
+      setUserName(data.profile.name || "");
+      setPreferences(data.profile.preferences || {});
+    } catch (profileError) {
+      console.warn("Profil nie został zapisany, ale wiadomość zostanie wysłana.", profileError);
+    }
   }
 
   function profileDetails(text: string) {
@@ -372,10 +367,11 @@ export default function Home() {
     setLastPrompt(trimmed);
     pendingModeRef.current = mode;
     pendingModelRef.current = model;
+    setPersistenceError("");
 
     try {
       const details = profileDetails(trimmed);
-      if (details.name || details.preference) await updateProfile(details);
+      if (details.name || details.preference) void updateProfile(details);
       const activeConversationId = conversationId ?? (await createConversation(trimmed));
       await saveMessage(activeConversationId, "user", trimmed);
       await sendMessage(
@@ -387,7 +383,8 @@ export default function Home() {
           },
         },
       );
-    } catch {
+    } catch (sendError) {
+      setPersistenceError(sendError instanceof Error ? sendError.message : "Nie udało się wysłać wiadomości.");
       setInput(trimmed);
     }
   }

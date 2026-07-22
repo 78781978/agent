@@ -1462,7 +1462,6 @@ async function buildDirectReactResponse(text: string, messages: UIMessage[]) {
 }
 
 export async function POST(request: Request) {
-  const user = await getAuthenticatedUser(request);
   const { messages } = (await request.json()) as {
     messages: UIMessage[];
   };
@@ -1473,6 +1472,8 @@ export async function POST(request: Request) {
   if (directResponse) {
     return directResponse;
   }
+
+  const user = await getAuthenticatedUser(request);
 
   const result = streamText({
     model: google("gemini-3.1-flash-lite"),

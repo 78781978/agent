@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { AppNav } from "../../components/AppNav";
@@ -239,6 +239,7 @@ function parseReactSections(text: string): ReactSection[] {
 export default function ReactLoopPage() {
   const [input, setInput] = useState("");
   const [durations, setDurations] = useState<Record<string, number>>({});
+  const [localError, setLocalError] = useState("");
   const startRef = useRef<number | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
@@ -277,18 +278,30 @@ export default function ReactLoopPage() {
     }
 
     clearError();
+    setLocalError("");
     setInput("");
     startRef.current = performance.now();
-    await sendMessage({ text: trimmed });
+
+    try {
+      await sendMessage({ text: trimmed });
+    } catch (sendError) {
+      setLocalError(
+        sendError instanceof Error && sendError.message
+          ? sendError.message
+          : "Nie udało się połączyć z /api/react. Sprawdź, czy serwer lokalny działa i czy Vercel ma najnowszy deploy.",
+      );
+    }
   }
 
   function startScenario(scenario: string) {
     clearError();
+    setLocalError("");
     setInput(scenario);
   }
 
   function resetConversation() {
     clearError();
+    setLocalError("");
     setMessages([]);
     setDurations({});
   }
@@ -466,10 +479,16 @@ export default function ReactLoopPage() {
               <div ref={bottomRef} />
             </div>
 
-            {error && (
+            {(error || localError) && (
               <div className="error-box">
-                <p>Coś poszło nie tak: {error.message}</p>
-                <button type="button" onClick={clearError}>
+                <p>
+                  Coś poszło nie tak:{" "}
+                  {error?.message || localError || "Brak szczegółów błędu."}
+                </p>
+                <button type="button" onClick={() => {
+                  clearError();
+                  setLocalError("");
+                }}>
                   Wyczyść błąd
                 </button>
               </div>

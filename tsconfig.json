@@ -31,6 +31,12 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "NAPRAWA_*",
+    "POPRAWKA_*",
+    "DO_GITHUB_*",
+    "**/NAPRAWA_*",
+    "**/POPRAWKA_*",
+    "**/DO_GITHUB_*"
   ]
 }

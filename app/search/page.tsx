@@ -1,10 +1,8 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { AppNav } from "../../components/AppNav";
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
-import { DefaultChatTransport, type UIMessage } from "ai";
-import { useChat } from "@ai-sdk/react";
 
 const sampleQuestions = [
   "Jakie są najnowsze wiadomości o sztucznej inteligencji?",
@@ -14,22 +12,12 @@ const sampleQuestions = [
   "Przeczytaj tę stronę: https://pl.wikipedia.org/wiki/Sztuczna_inteligencja",
 ];
 
-function messageText(message: UIMessage) {
-  return message.parts
-    .filter((part) => part.type === "text")
-    .map((part) => part.text)
-    .join("");
-}
-
-function messageSources(message: UIMessage) {
-  return message.parts
-    .filter((part) => part.type === "source-url")
-    .map((part) => ({
-      id: part.sourceId,
-      title: part.title ?? part.url,
-      url: part.url,
-    }));
-}
+type SearchMessage = {
+  id: string;
+  role: "user" | "assistant";
+  text: string;
+  sources?: Array<{ title: string; url: string }>;
+};
 
 function renderInline(text: string) {
   const parts: ReactNode[] = [];
@@ -75,23 +63,10 @@ function renderAnswer(text: string) {
 
 export default function SearchPage() {
   const [input, setInput] = useState("");
+  const [messages, setMessages] = useState<SearchMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
-
-  const {
-    messages,
-    sendMessage,
-    status,
-    stop,
-    error,
-    clearError,
-    setMessages,
-  } = useChat({
-    transport: new DefaultChatTransport({
-      api: "/api/chat",
-    }),
-  });
-
-  const isLoading = status === "submitted" || status === "streaming";
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -105,8 +80,55 @@ export default function SearchPage() {
       return;
     }
 
+    const userMessage: SearchMessage = {
+      id: crypto.randomUUID(),
+      role: "user",
+      text: trimmed,
+    };
+
     setInput("");
-    await sendMessage({ text: trimmed });
+    setError(null);
+    setIsLoading(true);
+    setMessages((current) => [...current, userMessage]);
+
+    try {
+      const response = await fetch("/api/search", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ query: trimmed }),
+      });
+      const data = (await response.json()) as {
+        text?: string;
+        error?: string;
+        sources?: Array<{ title: string; url: string }>;
+      };
+
+      if (!response.ok || !data.text) {
+        throw new Error(data.error || "Wyszukiwarka nie zwróciła odpowiedzi.");
+      }
+
+      const answerText = data.text;
+
+      setMessages((current) => [
+        ...current,
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          text: answerText,
+          sources: data.sources ?? [],
+        },
+      ]);
+    } catch (submitError) {
+      setError(
+        submitError instanceof Error
+          ? submitError.message
+          : "Nie udało się połączyć z wyszukiwarką.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   function useSampleQuestion(question: string) {
@@ -151,7 +173,7 @@ export default function SearchPage() {
           )}
 
           {messages.map((message) => {
-            const sources = message.role === "assistant" ? messageSources(message) : [];
+            const sources = message.role === "assistant" ? (message.sources ?? []) : [];
 
             return (
               <article
@@ -162,14 +184,14 @@ export default function SearchPage() {
                 {message.role === "assistant" && (
                   <span className="badge expert">WEB</span>
                 )}
-                <div className="bubble search-bubble">{renderAnswer(messageText(message))}</div>
+                <div className="bubble search-bubble">{renderAnswer(message.text)}</div>
                 {sources.length > 0 && (
                   <div className="source-list" aria-label="Źródła">
                     <strong>Źródła:</strong>
                     {sources.map((source) => (
                       <a
                         href={source.url}
-                        key={source.id}
+                        key={source.url}
                         target="_blank"
                         rel="noreferrer"
                       >
@@ -194,8 +216,8 @@ export default function SearchPage() {
 
         {error && (
           <div className="error-box">
-            <p>Coś poszło nie tak: {error.message}</p>
-            <button type="button" onClick={clearError}>
+            <p>Coś poszło nie tak: {error}</p>
+            <button type="button" onClick={() => setError(null)}>
               Wyczyść błąd
             </button>
           </div>
@@ -212,15 +234,9 @@ export default function SearchPage() {
             <button type="button" onClick={() => setMessages([])} disabled={isLoading}>
               Nowa rozmowa
             </button>
-            {isLoading ? (
-              <button type="button" onClick={stop}>
-                Stop
-              </button>
-            ) : (
-              <button type="submit" disabled={isLoading || !input.trim()}>
-                Wyślij
-              </button>
-            )}
+            <button type="submit" disabled={isLoading || !input.trim()}>
+              {isLoading ? "Szukam..." : "Wyślij"}
+            </button>
           </div>
         </form>
       </section>

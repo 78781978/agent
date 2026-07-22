@@ -24,6 +24,10 @@ type DocumentDateRow = {
   created_at: string;
 };
 
+type DocumentOwnerRow = {
+  id: string;
+};
+
 const stopWords = new Set([
   "czy",
   "dla",
@@ -85,6 +89,8 @@ export async function searchKnowledge(
   query: string,
   matchThreshold = 0.5,
   matchCount = 5,
+  userId?: string,
+  accessToken?: string,
 ): Promise<KnowledgeSearchResponse> {
   const cleanQuery = query.trim();
 
@@ -99,15 +105,17 @@ export async function searchKnowledge(
 
   const embedding = await embedText(cleanQuery);
   const results = await supabaseRequest<RawKnowledgeSearchResult[]>(
-    "rpc/match_documents",
+    userId ? "rpc/match_documents_for_user" : "rpc/match_documents",
     {
       method: "POST",
       body: JSON.stringify({
         query_embedding: embedding,
         match_threshold: matchThreshold,
         match_count: matchCount,
+        ...(userId ? { owner_id: userId } : {}),
       }),
     },
+    accessToken,
   );
 
   const safeResults = (Array.isArray(results) ? results : [])
@@ -127,15 +135,41 @@ export async function searchKnowledge(
   }
 
   const ids = safeResults.map((result) => result.id).filter(Boolean);
+  const ownerRows = ids.length && userId
+    ? await supabaseRequest<DocumentOwnerRow[]>(
+        `documents?select=id&id=in.(${ids.join(",")})&user_id=eq.${encodeURIComponent(userId)}`,
+        {},
+        accessToken,
+      )
+    : [];
+  const allowedIds = userId
+    ? new Set((Array.isArray(ownerRows) ? ownerRows : []).map((row) => row.id))
+    : null;
+  const filteredResults = allowedIds
+    ? safeResults.filter((result) => allowedIds.has(result.id))
+    : safeResults;
+
+  if (!filteredResults.length) {
+    return {
+      results: [],
+      total_found: 0,
+      source_documents: [],
+      message: "Nie znaleziono informacji w Twojej prywatnej bazie wiedzy.",
+    };
+  }
+
+  const filteredIds = filteredResults.map((result) => result.id).filter(Boolean);
   const dateRows = ids.length
     ? await supabaseRequest<DocumentDateRow[]>(
-        `documents?select=id,created_at&id=in.(${ids.join(",")})`,
+        `documents?select=id,created_at&id=in.(${filteredIds.join(",")})${userId ? `&user_id=eq.${encodeURIComponent(userId)}` : ""}`,
+        {},
+        accessToken,
       )
     : [];
   const datesById = new Map(
     (Array.isArray(dateRows) ? dateRows : []).map((row) => [row.id, row.created_at]),
   );
-  const enrichedResults = safeResults.map((result) => ({
+  const enrichedResults = filteredResults.map((result) => ({
     ...result,
     added_at: datesById.get(result.id) ?? null,
   }));

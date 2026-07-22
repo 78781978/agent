@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { signOut } from "../lib/auth-client";
 
 const menuItems = [
   { href: "/", label: "Dashboard" },
@@ -13,7 +15,6 @@ const menuItems = [
   { href: "/format", label: "Formater" },
   { href: "/search", label: "Szukaj" },
   { href: "/generate", label: "Grafiki" },
-  { href: "/vision", label: "Vision" },
   { href: "/history", label: "Historia" },
   { href: "/upload", label: "Baza wiedzy" },
   { href: "/knowledge", label: "Podgląd wiedzy" },
@@ -26,8 +27,18 @@ type AppNavProps = {
 };
 
 export function AppNav({ active }: AppNavProps) {
+  const router = useRouter();
+
+  async function handleSignOut() {
+    await signOut();
+    router.replace("/login");
+  }
+
   return (
     <nav className="top-nav agent-main-nav" aria-label="Nawigacja">
+      <button className="nav-sign-out nav-sign-out-top" type="button" onClick={handleSignOut}>
+        Wyloguj
+      </button>
       {menuItems.map((item) => (
         <Link
           className={active === item.href ? "active" : undefined}

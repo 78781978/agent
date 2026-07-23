@@ -7,30 +7,32 @@ type Profile = {
   preferences: Record<string, string>;
 };
 
-async function getProfile(userId: string) {
+async function getProfile(userId: string, accessToken: string) {
   const rows = await supabaseRequest<Profile[]>(
     `user_profiles?select=id,name,preferences&id=eq.${encodeURIComponent(userId)}&limit=1`,
+    {},
+    accessToken,
   );
 
   return rows[0] ?? null;
 }
 
 async function upsertProfile(
-  userId: string,
+  accessToken: string,
   name: string | null,
   preferences: Record<string, string>,
 ) {
   const rows = await supabaseRequest<Profile[]>(
-    "user_profiles?on_conflict=id",
+    "rpc/upsert_current_user_profile",
     {
       method: "POST",
-      headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+      headers: { Prefer: "return=representation" },
       body: JSON.stringify({
-        id: userId,
-        name,
-        preferences,
+        profile_name: name,
+        profile_preferences: preferences,
       }),
     },
+    accessToken,
   );
 
   return rows[0] ?? null;
@@ -43,7 +45,7 @@ function profileStatus(error: unknown) {
 export async function GET(request: Request) {
   try {
     const user = await getAuthenticatedUser(request);
-    const profile = await getProfile(user.id);
+    const profile = await getProfile(user.id, user.accessToken);
 
     return NextResponse.json({ profile });
   } catch (error) {
@@ -57,13 +59,13 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const user = await getAuthenticatedUser(request);
-    const existingProfile = await getProfile(user.id);
+    const existingProfile = await getProfile(user.id, user.accessToken);
 
     if (existingProfile) {
       return NextResponse.json({ profile: existingProfile });
     }
 
-    const profile = await upsertProfile(user.id, user.email?.split("@")[0] ?? null, {});
+    const profile = await upsertProfile(user.accessToken, user.email?.split("@")[0] ?? null, {});
 
     return NextResponse.json({ profile });
   } catch (error) {
@@ -81,7 +83,7 @@ export async function PATCH(request: Request) {
       name?: string;
       preference?: { key: string; value: string };
     };
-    const currentProfile = (await getProfile(user.id)) ?? {
+    const currentProfile = (await getProfile(user.id, user.accessToken)) ?? {
       id: user.id,
       name: null,
       preferences: {},
@@ -93,7 +95,7 @@ export async function PATCH(request: Request) {
     }
 
     const profile = await upsertProfile(
-      user.id,
+      user.accessToken,
       body.name ?? currentProfile.name ?? user.email?.split("@")[0] ?? null,
       preferences,
     );

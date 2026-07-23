@@ -260,6 +260,15 @@ function getLatestUserText(messages: UIMessage[]) {
   return latestUserMessage ? getMessageText(latestUserMessage) : "";
 }
 
+function getPreviousUserText(messages: UIMessage[]) {
+  const userMessages = messages
+    .filter((message) => message.role === "user")
+    .map(getMessageText)
+    .filter((text) => text.trim());
+
+  return userMessages.length >= 2 ? userMessages[userMessages.length - 2] : "";
+}
+
 function detectRequiredTool(text: string): AgentToolName | undefined {
   const normalizedText = text.toLowerCase();
 
@@ -721,6 +730,29 @@ function summarizeReadPageResult(
     ].join("\n");
   }
 
+  if (
+    /\b(firma|firmy|co robi|czym sie zajmuje|czym się zajmuje|kim jest|jaka to firma|co to za firma|logo)\b/i.test(
+      requestText,
+    )
+  ) {
+    return [
+      "## Co robi ta firma",
+      "",
+      `Na podstawie strony **${domain}** mogę przygotować ostrożne, robocze podsumowanie działalności firmy. Nie dopisuję faktów spoza odczytanej strony.`,
+      "",
+      facts.length
+        ? [
+            "**Najważniejsze informacje z odczytanej strony:**",
+            ...facts.slice(0, 5).map((fact) => `- ${fact}`),
+          ].join("\n")
+        : "**Najważniejsze informacje:** strona została pobrana, ale jej treść jest zbyt ogólna, aby przygotować szczegółowy opis.",
+      "",
+      "**Wniosek dla logo:** logo powinno bazować na potwierdzonej działalności firmy z tej strony, a nie na samej nazwie. Dzięki temu projekt graficzny będzie pasował do właściwego podmiotu.",
+      "",
+      `Źródło: [${domain}](${pageOutput.url})`,
+    ].join("\n");
+  }
+
   return [
     `## Krótkie opracowanie: ${topicTitle}`,
     "",
@@ -925,6 +957,17 @@ function buildCompanyClarificationAnswer(
 async function buildDirectToolResponse(text: string, messages: UIMessage[]) {
   const plan = detectToolPlan(text);
   const businessTask = isBusinessRevenueTask(text);
+  const previousUserText = getPreviousUserText(messages);
+  const continuesCompanyLogoTask = Boolean(
+    extractFirstUrl(text) && isCompanyLogoResearchTask(previousUserText),
+  );
+  const requestContext = continuesCompanyLogoTask
+    ? `${previousUserText}\n${text}`
+    : text;
+
+  if (continuesCompanyLogoTask && !plan.includes("generateImage")) {
+    plan.push("generateImage");
+  }
 
   if (plan.length === 0) {
     return undefined;
@@ -991,7 +1034,7 @@ async function buildDirectToolResponse(text: string, messages: UIMessage[]) {
 
   let clarificationAnswer: string | undefined;
 
-  if (isCompanyLogoResearchTask(text)) {
+  if (isCompanyLogoResearchTask(requestContext) && !continuesCompanyLogoTask) {
     const searchOutput = steps.find((step) => step.toolName === "webSearch")
       ?.output as WebSearchResult | undefined;
     const pageOutput = steps.find((step) => step.toolName === "readWebPage")
@@ -999,7 +1042,7 @@ async function buildDirectToolResponse(text: string, messages: UIMessage[]) {
 
     if (!hasConfirmedCompanyResearch(searchOutput, pageOutput)) {
       clarificationAnswer = buildCompanyClarificationAnswer(
-        searchOutput?.query ?? extractSearchQuery(text),
+        searchOutput?.query ?? extractSearchQuery(requestContext),
         searchOutput,
       );
     }
@@ -1008,12 +1051,17 @@ async function buildDirectToolResponse(text: string, messages: UIMessage[]) {
   if (plan.includes("generateImage")) {
     const searchOutput = steps.find((step) => step.toolName === "webSearch")
       ?.output as WebSearchResult | undefined;
-    const isSocialPostImage = /\b(post|social|linkedin|facebook|instagram)\b/i.test(text);
+    const pageOutput = steps.find((step) => step.toolName === "readWebPage")
+      ?.output as Awaited<ReturnType<typeof readWebPage>> | undefined;
+    const isSocialPostImage = /\b(post|social|linkedin|facebook|instagram)\b/i.test(requestContext);
     const prompt = [
       isSocialPostImage
         ? `Professional social media graphic for a business announcement about AI automation services and dedicated AI agents for companies. Modern B2B style, clean composition, dark navy and lime green accents, abstract AI network, confident but approachable, no text. Request context: ${text}`
-        : `Professional modern logo or visual concept based on this request: ${text}`,
+        : `Professional modern logo or visual concept based on this request: ${requestContext}`,
       searchOutput?.summary ? `Research context: ${searchOutput.summary}` : "",
+      pageOutput?.ok && pageOutput.content
+        ? `Official website context: ${pageOutput.content.slice(0, 1200)}`
+        : "",
     ]
       .filter(Boolean)
       .join("\n");
@@ -1031,6 +1079,21 @@ async function buildDirectToolResponse(text: string, messages: UIMessage[]) {
 
   if (clarificationAnswer) {
     answerParts.push(clarificationAnswer);
+  } else if (continuesCompanyLogoTask) {
+    const pageOutput = steps.find((step) => step.toolName === "readWebPage")
+      ?.output as Awaited<ReturnType<typeof readWebPage>> | undefined;
+    const imageOutput = steps.find((step) => step.toolName === "generateImage")
+      ?.output as GenerateImageResult | undefined;
+
+    answerParts.push(
+      [
+        summarizeReadPageResult(pageOutput, requestContext),
+        "",
+        imageOutput?.ok
+          ? `**Propozycja logo:** wygenerowano wersję roboczą w narzędziu ${imageOutput.provider}.`
+          : `**Propozycja logo:** nie udało się wygenerować grafiki. ${imageOutput?.error ?? "Sprawdź klucz Google albo spróbuj ponownie za chwilę."}`,
+      ].join("\n"),
+    );
   } else if (!businessTask && plan.includes("webSearch") && plan.includes("generateImage")) {
     const searchOutput = steps.find((step) => step.toolName === "webSearch")
       ?.output as WebSearchResult | undefined;

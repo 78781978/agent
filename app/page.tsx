@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { AppNav } from "../components/AppNav";
@@ -49,6 +49,12 @@ const quickActions = [
     icon: "AI",
     label: "Agent pełna moc",
     description: "Autonomiczny agent z narzędziami, wyszukiwaniem, grafiką i bazą wiedzy.",
+  },
+  {
+    href: "/offer",
+    icon: "OF",
+    label: "Generator oferty AI",
+    description: "Nowy scenariusz W4: diagnoza klienta, zakres MVP, wycena i gotowy e-mail.",
   },
   {
     href: "/wash",

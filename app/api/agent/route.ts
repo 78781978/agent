@@ -930,6 +930,46 @@ function hasConfirmedCompanyResearch(
   return collectResearchFacts(searchOutput, pageOutput).length > 0;
 }
 
+function hasConfirmedResearch(
+  searchOutput: WebSearchResult | undefined,
+  pageOutput: Awaited<ReturnType<typeof readWebPage>> | undefined,
+) {
+  if (pageOutput?.ok && splitIntoUsefulSentences(pageOutput.content ?? "").length > 0) {
+    return true;
+  }
+
+  return Boolean(searchOutput?.sources.length && collectResearchFacts(searchOutput, pageOutput).length > 0);
+}
+
+function needsFreshResearchBeforeImage(text: string) {
+  return (
+    /\b(najnowsze|aktualne|wiadomości|wiadomosci|news|trendy|co nowego|dzisiaj|teraz)\b/i.test(
+      text,
+    ) ||
+    (/\b(post|social|linkedin|facebook|instagram)\b/i.test(text) &&
+      /\b(google|wyszukaj|znajdz|znajdź|sprawdz|sprawdź|research|internet)\b/i.test(text))
+  );
+}
+
+function buildResearchBlockedImageAnswer(query: string, searchOutput: WebSearchResult | undefined) {
+  const technicalReason = searchOutput?.sources.length
+    ? "znalezione wyniki nie zawierały wystarczająco pewnych informacji"
+    : "wyszukiwarka nie zwróciła potwierdzonych wyników w aplikacji";
+
+  return [
+    `Nie wygeneruję jeszcze grafiki ani posta dla tematu **${query}**, bo ${technicalReason}.`,
+    "",
+    "To zadanie wymaga aktualnych informacji, więc bez źródeł mogłabym stworzyć ładną, ale nieprawdziwą treść.",
+    "",
+    "Podeślij proszę jedno z poniższych:",
+    "- link do artykułu lub strony z aktualnościami,",
+    "- tekst źródłowy do opracowania,",
+    "- albo spróbuj ponownie za chwilę, gdy wyszukiwarka odpowie poprawnie.",
+    "",
+    "Gdy będę mieć źródło, przygotuję gotowy post i grafikę dopasowaną do treści.",
+  ].join("\n");
+}
+
 function buildCompanyClarificationAnswer(
   query: string,
   searchOutput: WebSearchResult | undefined,
@@ -1033,6 +1073,7 @@ async function buildDirectToolResponse(text: string, messages: UIMessage[]) {
   }
 
   let clarificationAnswer: string | undefined;
+  let blockedImageAnswer: string | undefined;
 
   if (isCompanyLogoResearchTask(requestContext) && !continuesCompanyLogoTask) {
     const searchOutput = steps.find((step) => step.toolName === "webSearch")
@@ -1042,6 +1083,20 @@ async function buildDirectToolResponse(text: string, messages: UIMessage[]) {
 
     if (!hasConfirmedCompanyResearch(searchOutput, pageOutput)) {
       clarificationAnswer = buildCompanyClarificationAnswer(
+        searchOutput?.query ?? extractSearchQuery(requestContext),
+        searchOutput,
+      );
+    }
+  }
+
+  if (!clarificationAnswer && plan.includes("webSearch") && plan.includes("generateImage")) {
+    const searchOutput = steps.find((step) => step.toolName === "webSearch")
+      ?.output as WebSearchResult | undefined;
+    const pageOutput = steps.find((step) => step.toolName === "readWebPage")
+      ?.output as Awaited<ReturnType<typeof readWebPage>> | undefined;
+
+    if (needsFreshResearchBeforeImage(requestContext) && !hasConfirmedResearch(searchOutput, pageOutput)) {
+      blockedImageAnswer = buildResearchBlockedImageAnswer(
         searchOutput?.query ?? extractSearchQuery(requestContext),
         searchOutput,
       );
@@ -1066,7 +1121,7 @@ async function buildDirectToolResponse(text: string, messages: UIMessage[]) {
       .filter(Boolean)
       .join("\n");
 
-    if (!clarificationAnswer) {
+    if (!clarificationAnswer && !blockedImageAnswer) {
       const output = await generateGoogleImage(prompt);
 
       steps.push({
@@ -1079,6 +1134,8 @@ async function buildDirectToolResponse(text: string, messages: UIMessage[]) {
 
   if (clarificationAnswer) {
     answerParts.push(clarificationAnswer);
+  } else if (blockedImageAnswer) {
+    answerParts.push(blockedImageAnswer);
   } else if (continuesCompanyLogoTask) {
     const pageOutput = steps.find((step) => step.toolName === "readWebPage")
       ?.output as Awaited<ReturnType<typeof readWebPage>> | undefined;
@@ -1111,7 +1168,9 @@ async function buildDirectToolResponse(text: string, messages: UIMessage[]) {
       [
         pageSummary,
         "",
-        `**Propozycja logo:** wygenerowano wersję roboczą w narzędziu ${imageOutput?.provider ?? "generator obrazu"}.`,
+        /\b(logo|znak|identyfikacj|brand|branding)\b/i.test(requestContext)
+          ? `**Propozycja logo:** wygenerowano wersję roboczą w narzędziu ${imageOutput?.provider ?? "generator obrazu"}.`
+          : `**Propozycja grafiki:** wygenerowano wersję roboczą w narzędziu ${imageOutput?.provider ?? "generator obrazu"}.`,
       ].join("\n"),
     );
   } else if (!businessTask && plan.includes("webSearch")) {

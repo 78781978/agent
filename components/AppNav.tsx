@@ -17,6 +17,7 @@ const menuItems = [
   { href: "/generate", label: "Grafiki" },
   { href: "/email-triage", label: "E-mail Triage" },
   { href: "/report", label: "Raporty" },
+  { href: "/competitor", label: "Konkurencja" },
   { href: "/history", label: "Historia" },
   { href: "/upload", label: "Baza wiedzy" },
   { href: "/knowledge", label: "Podgląd wiedzy" },

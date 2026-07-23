@@ -1,6 +1,6 @@
 import { splitIntoChunks } from "../../../lib/chunking";
 import { embedText } from "../../../lib/embeddings";
-import { supabaseRequest } from "../../../lib/supabase";
+import { getAuthenticatedUser, supabaseRequest } from "../../../lib/supabase";
 
 type DocumentRow = {
   title: string;
@@ -15,10 +15,13 @@ function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Nieznany błąd.";
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const user = await getAuthenticatedUser(request);
     const rows = await supabaseRequest<DocumentRow[]>(
-      "documents?select=title,created_at&order=created_at.desc",
+      `documents?select=title,created_at&user_id=eq.${encodeURIComponent(user.id)}&order=created_at.desc`,
+      {},
+      user.accessToken,
     );
 
     const grouped = new Map<
@@ -58,30 +61,31 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => null)) as {
-    title?: unknown;
-    content?: unknown;
-  } | null;
-  const title = typeof body?.title === "string" ? body.title.trim() : "";
-  const content = typeof body?.content === "string" ? body.content.trim() : "";
-
-  if (!title || !content) {
-    return Response.json(
-      { error: "Podaj tytuł i treść dokumentu." },
-      { status: 400 },
-    );
-  }
-
-  const chunks = splitIntoChunks(content);
-
-  if (!chunks.length) {
-    return Response.json(
-      { error: "Treść dokumentu jest zbyt krótka albo pusta." },
-      { status: 400 },
-    );
-  }
-
   try {
+    const user = await getAuthenticatedUser(request);
+    const body = (await request.json().catch(() => null)) as {
+      title?: unknown;
+      content?: unknown;
+    } | null;
+    const title = typeof body?.title === "string" ? body.title.trim() : "";
+    const content = typeof body?.content === "string" ? body.content.trim() : "";
+
+    if (!title || !content) {
+      return Response.json(
+        { error: "Podaj tytuł i treść dokumentu." },
+        { status: 400 },
+      );
+    }
+
+    const chunks = splitIntoChunks(content);
+
+    if (!chunks.length) {
+      return Response.json(
+        { error: "Treść dokumentu jest zbyt krótka albo pusta." },
+        { status: 400 },
+      );
+    }
+
     for (let index = 0; index < chunks.length; index += 1) {
       const chunk = chunks[index];
       const embedding = await embedText(chunk);
@@ -95,13 +99,14 @@ export async function POST(request: Request) {
           title,
           content: chunk,
           embedding: vectorToPgString(embedding),
+          user_id: user.id,
           metadata: {
             source: title,
             chunk_index: index,
             total_chunks: chunks.length,
           },
         }),
-      });
+      }, user.accessToken);
     }
 
     return Response.json({
@@ -119,20 +124,25 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const title = searchParams.get("title")?.trim();
-
-  if (!title) {
-    return Response.json({ error: "Brakuje tytułu dokumentu." }, { status: 400 });
-  }
-
   try {
-    await supabaseRequest(`documents?title=eq.${encodeURIComponent(title)}`, {
-      method: "DELETE",
-      headers: {
-        Prefer: "return=minimal",
+    const user = await getAuthenticatedUser(request);
+    const { searchParams } = new URL(request.url);
+    const title = searchParams.get("title")?.trim();
+
+    if (!title) {
+      return Response.json({ error: "Brakuje tytułu dokumentu." }, { status: 400 });
+    }
+
+    await supabaseRequest(
+      `documents?title=eq.${encodeURIComponent(title)}&user_id=eq.${encodeURIComponent(user.id)}`,
+      {
+        method: "DELETE",
+        headers: {
+          Prefer: "return=minimal",
+        },
       },
-    });
+      user.accessToken,
+    );
 
     return Response.json({ success: true });
   } catch (error) {

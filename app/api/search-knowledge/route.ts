@@ -1,4 +1,5 @@
 import { searchKnowledge } from "../../../lib/knowledge";
+import { getAuthenticatedUser } from "../../../lib/supabase";
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as {
@@ -11,7 +12,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await searchKnowledge(query);
+    const user = await getAuthenticatedUser(request);
+    const result = await searchKnowledge(query, 0.5, 5, user.id, user.accessToken);
     return Response.json(result);
   } catch (error) {
     return Response.json(

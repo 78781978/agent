@@ -5,7 +5,7 @@ type Conversation = { id: string; title: string | null; created_at: string; upda
 type Message = { id: string; role: "user" | "assistant"; content: string; created_at: string };
 
 function authStatus(error: unknown) {
-  return error instanceof Error && error.message.includes("zalog") ? 401 : 500;
+  return error instanceof Error && /zalog|sesja|jwt|token/i.test(error.message) ? 401 : 500;
 }
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -15,6 +15,8 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     const safeId = encodeURIComponent(id);
     const conversations = await supabaseRequest<Conversation[]>(
       `conversations?select=id,title,created_at,updated_at&id=eq.${safeId}&user_id=eq.${encodeURIComponent(user.id)}&limit=1`,
+      {},
+      user.accessToken,
     );
 
     if (!conversations[0]) {
@@ -23,6 +25,8 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 
     const messages = await supabaseRequest<Message[]>(
       `messages?select=id,role,content,created_at&conversation_id=eq.${safeId}&order=created_at.asc`,
+      {},
+      user.accessToken,
     );
 
     return NextResponse.json({ conversation: conversations[0], messages });

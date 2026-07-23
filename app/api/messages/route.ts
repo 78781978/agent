@@ -20,6 +20,8 @@ export async function POST(request: Request) {
 
     const conversations = await supabaseRequest<ConversationOwner[]>(
       `conversations?select=id&id=eq.${encodeURIComponent(body.conversationId)}&user_id=eq.${encodeURIComponent(user.id)}&limit=1`,
+      {},
+      user.accessToken,
     );
 
     if (!conversations[0]) {
@@ -34,7 +36,7 @@ export async function POST(request: Request) {
         role: body.role,
         content: body.content,
       }),
-    });
+    }, user.accessToken);
 
     await supabaseRequest(
       `conversations?id=eq.${encodeURIComponent(body.conversationId)}&user_id=eq.${encodeURIComponent(user.id)}`,
@@ -43,6 +45,7 @@ export async function POST(request: Request) {
         headers: { Prefer: "return=minimal" },
         body: JSON.stringify({ updated_at: new Date().toISOString() }),
       },
+      user.accessToken,
     );
 
     return NextResponse.json({ ok: true });

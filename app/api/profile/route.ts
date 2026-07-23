@@ -39,7 +39,9 @@ async function upsertProfile(
 }
 
 function profileStatus(error: unknown) {
-  return error instanceof Error && error.message.includes("zalog") ? 401 : 500;
+  return error instanceof Error && /zalog|sesja|jwt|token|pgrst303/i.test(error.message)
+    ? 401
+    : 500;
 }
 
 export async function GET(request: Request) {

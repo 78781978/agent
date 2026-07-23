@@ -1,4 +1,5 @@
 import "./globals.css";
+import { AuthGate } from "../components/AuthGate";
 
 export const metadata = {
   title: "Mój Agent AI",
@@ -12,7 +13,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pl">
-      <body>{children}</body>
+      <body>
+        <AuthGate>{children}</AuthGate>
+      </body>
     </html>
   );
 }

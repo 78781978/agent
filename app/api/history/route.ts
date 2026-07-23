@@ -5,7 +5,7 @@ type Conversation = { id: string; title: string | null; created_at: string; upda
 type Message = { conversation_id: string; content: string; created_at: string };
 
 function authStatus(error: unknown) {
-  return error instanceof Error && error.message.includes("zalog") ? 401 : 500;
+  return error instanceof Error && /zalog|sesja|jwt|token/i.test(error.message) ? 401 : 500;
 }
 
 export async function GET(request: Request) {
@@ -14,11 +14,15 @@ export async function GET(request: Request) {
     const userId = encodeURIComponent(user.id);
     const conversations = await supabaseRequest<Conversation[]>(
       `conversations?select=id,title,created_at,updated_at&user_id=eq.${userId}&order=updated_at.desc`,
+      {},
+      user.accessToken,
     );
     const conversationIds = conversations.map((conversation) => conversation.id);
     const messages = conversationIds.length
       ? await supabaseRequest<Message[]>(
           `messages?select=conversation_id,content,created_at&conversation_id=in.(${conversationIds.join(",")})&order=created_at.asc`,
+          {},
+          user.accessToken,
         )
       : [];
 
@@ -52,6 +56,8 @@ export async function DELETE(request: Request) {
     const safeId = encodeURIComponent(id);
     const conversations = await supabaseRequest<Array<{ id: string }>>(
       `conversations?select=id&id=eq.${safeId}&user_id=eq.${encodeURIComponent(user.id)}&limit=1`,
+      {},
+      user.accessToken,
     );
 
     if (!conversations[0]) {
@@ -61,10 +67,12 @@ export async function DELETE(request: Request) {
     await supabaseRequest(
       `messages?conversation_id=eq.${safeId}`,
       { method: "DELETE", headers: { Prefer: "return=minimal" } },
+      user.accessToken,
     );
     await supabaseRequest(
       `conversations?id=eq.${safeId}&user_id=eq.${encodeURIComponent(user.id)}`,
       { method: "DELETE", headers: { Prefer: "return=minimal" } },
+      user.accessToken,
     );
 
     return NextResponse.json({ ok: true });

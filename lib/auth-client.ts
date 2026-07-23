@@ -59,12 +59,7 @@ async function authFetch<T>(path: string, init: RequestInit = {}) {
       ...init.headers,
     },
   });
-
-  const json = (await response.json().catch(() => ({}))) as T & {
-    msg?: string;
-    error_description?: string;
-    error?: string;
-  };
+  const json = (await response.json().catch(() => ({}))) as T & { msg?: string; error_description?: string; error?: string };
 
   if (!response.ok) {
     throw new Error(json.error_description || json.msg || json.error || "Supabase Auth zwrócił błąd.");

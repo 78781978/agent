@@ -1,4 +1,4 @@
-import { google } from "@ai-sdk/google";
+﻿import { google } from "@ai-sdk/google";
 import { searchKnowledge } from "../../../lib/knowledge";
 import { getAuthenticatedUser, supabaseRequest } from "../../../lib/supabase";
 import {

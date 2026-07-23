@@ -1,4 +1,4 @@
-import { supabaseRequest } from "../../../lib/supabase";
+import { getAuthenticatedUser, supabaseRequest } from "../../../lib/supabase";
 
 type DocumentRow = {
   id: string;
@@ -17,11 +17,16 @@ export async function GET(request: Request) {
   const title = searchParams.get("title")?.trim();
 
   try {
+    const user = await getAuthenticatedUser(request);
+    const userId = encodeURIComponent(user.id);
+
     if (title) {
       const chunks = await supabaseRequest<DocumentRow[]>(
         `documents?select=id,title,content,metadata,created_at&title=eq.${encodeURIComponent(
           title,
-        )}&order=created_at.asc`,
+        )}&user_id=eq.${userId}&order=created_at.asc`,
+        {},
+        user.accessToken,
       );
 
       return Response.json({
@@ -31,7 +36,9 @@ export async function GET(request: Request) {
     }
 
     const rows = await supabaseRequest<DocumentRow[]>(
-      "documents?select=id,title,content,metadata,created_at&order=created_at.desc",
+      `documents?select=id,title,content,metadata,created_at&user_id=eq.${userId}&order=created_at.desc`,
+      {},
+      user.accessToken,
     );
     const grouped = new Map<
       string,

@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
+import { AppNav } from "../components/AppNav";
 import { useEffect, useMemo, useState } from "react";
 
 type ToolResult<T> = {
@@ -27,7 +28,7 @@ type DashboardData = {
   }>;
   rates: Array<
     ToolResult<{
-      code: "EUR" | "USD";
+      code: "EUR" | "USD" | "GBP";
       rate: number | null;
       date: string;
     }>
@@ -42,73 +43,70 @@ type DashboardData = {
   >;
 };
 
-const navItems = [
-  { href: "/", icon: "🏠", label: "Dashboard" },
-  { href: "/chat", icon: "💬", label: "Chat Vie" },
-  { href: "/react", icon: "🧭", label: "ReAct" },
-  { href: "/travel", icon: "🌍", label: "Podróże" },
-  { href: "/think", icon: "🧠", label: "Myślenie" },
-  { href: "/generate", icon: "🎨", label: "Grafiki" },
-  { href: "/fewshot", icon: "📚", label: "Słownik AI" },
-  { href: "/format", icon: "📄", label: "Format" },
-  { href: "/search", icon: "🔎", label: "Wyszukiwarka" },
-  { href: "/agent", icon: "🤖", label: "Agent" },
-  { href: "/upload", icon: "📚", label: "Baza wiedzy" },
-  { href: "/knowledge", icon: "🗂️", label: "Podgląd wiedzy" },
-];
-
 const quickActions = [
   {
     href: "/agent",
-    icon: "🤖",
+    icon: "AI",
     label: "Agent pełna moc",
     description: "Autonomiczny agent z narzędziami, wyszukiwaniem, grafiką i bazą wiedzy.",
   },
   {
+    href: "/wash",
+    icon: "W",
+    label: "Agent marketingowy myjni",
+    description: "Panel dla właściciela: posty, kampanie, e-mail i decyzje sprzedażowe.",
+  },
+  {
+    href: "/wash-booking",
+    icon: "R",
+    label: "Agent rezerwacji myjni",
+    description: "Obsługa klienta: dobór usługi, czas, widełki ceny i wolne terminy.",
+  },
+  {
     href: "/travel",
-    icon: "🌍",
+    icon: "TR",
     label: "Zaplanuj podróż",
     description: "Pogoda, waluty, święta i rekomendacja wyjazdu.",
   },
   {
     href: "/react",
-    icon: "🔄",
+    icon: "RE",
     label: "Agent ReAct",
     description: "Agent, który używa narzędzi krok po kroku.",
   },
   {
     href: "/chat",
-    icon: "💬",
+    icon: "VI",
     label: "Chat z Vie",
     description: "Główna rozmowa z Twoją personą AI.",
   },
   {
     href: "/think",
-    icon: "🧠",
+    icon: "TH",
     label: "Tryb myślenia",
     description: "Analiza problemu i logiczne rozbijanie zadań.",
   },
   {
     href: "/generate",
-    icon: "🎨",
+    icon: "GR",
     label: "Generator grafik",
     description: "Tworzenie testowych grafik z promptu.",
   },
   {
     href: "/upload",
-    icon: "📚",
+    icon: "KB",
     label: "Baza wiedzy",
     description: "Wklej dokumenty, cenniki i FAQ do Supabase RAG.",
   },
   {
     href: "/knowledge",
-    icon: "🗂️",
+    icon: "PV",
     label: "Podgląd wiedzy",
     description: "Sprawdź fragmenty, źródła i testowe wyszukiwanie RAG.",
   },
   {
     href: "/fewshot",
-    icon: "📚",
+    icon: "FS",
     label: "Słownik AI",
     description: "Przykłady stylu, tonu i gotowych formatów.",
   },
@@ -214,26 +212,14 @@ export default function DashboardPage() {
 
       <aside className={`dashboard-sidebar ${menuOpen ? "open" : ""}`}>
         <div className="dashboard-brand">
-          <span>🏠</span>
+          <span>AI</span>
           <div>
             <strong>Mój Agent</strong>
             <small>panel pracy</small>
           </div>
         </div>
 
-        <nav aria-label="Główna nawigacja">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              className={item.href === "/" ? "active" : ""}
-              href={item.href}
-              onClick={() => setMenuOpen(false)}
-            >
-              <span>{item.icon}</span>
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+        <AppNav active="/" />
       </aside>
 
       <section className="dashboard-main">
@@ -266,7 +252,7 @@ export default function DashboardPage() {
         <section className="dashboard-grid" aria-label="Dane operacyjne">
           <article className="dashboard-card dashboard-card-weather">
             <div className="dashboard-card-head">
-              <span>🌦️</span>
+              <span>PO</span>
               <div>
                 <h2>Pogoda</h2>
                 <p>Warszawa · odświeżanie co 15 minut</p>
@@ -297,10 +283,10 @@ export default function DashboardPage() {
 
           <article className="dashboard-card dashboard-card-rates">
             <div className="dashboard-card-head">
-              <span>💱</span>
+              <span>FX</span>
               <div>
                 <h2>Kursy walut</h2>
-                <p>EUR i USD · odświeżanie co godzinę</p>
+                <p>EUR, USD i GBP · odświeżanie co godzinę</p>
               </div>
             </div>
 
@@ -329,7 +315,7 @@ export default function DashboardPage() {
 
           <article className="dashboard-card dashboard-card-holidays">
             <div className="dashboard-card-head">
-              <span>📅</span>
+              <span>ŚW</span>
               <div>
                 <h2>Najbliższe święta</h2>
                 <p>Polska · rok 2026</p>
@@ -365,7 +351,7 @@ export default function DashboardPage() {
 
           <article className="dashboard-card dashboard-card-budget">
             <div className="dashboard-card-head">
-              <span>💼</span>
+              <span>BU</span>
               <div>
                 <h2>Budżet podróży</h2>
                 <p>Nowa funkcja asystenta podróży</p>
@@ -397,7 +383,7 @@ export default function DashboardPage() {
 
           <article className="dashboard-card dashboard-card-actions">
             <div className="dashboard-card-head">
-              <span>⚡</span>
+              <span>GO</span>
               <div>
                 <h2>Szybkie akcje</h2>
                 <p>Przejdź do gotowych modułów agenta</p>
@@ -419,3 +405,4 @@ export default function DashboardPage() {
     </main>
   );
 }
+

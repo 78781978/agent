@@ -15,6 +15,8 @@ const menuItems = [
   { href: "/format", label: "Formater" },
   { href: "/search", label: "Szukaj" },
   { href: "/generate", label: "Grafiki" },
+  { href: "/email-triage", label: "E-mail Triage" },
+  { href: "/report", label: "Raporty" },
   { href: "/history", label: "Historia" },
   { href: "/upload", label: "Baza wiedzy" },
   { href: "/knowledge", label: "Podgląd wiedzy" },

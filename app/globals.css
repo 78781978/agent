@@ -1091,11 +1091,67 @@ h1 {
   text-underline-offset: 3px;
 }
 
+.competitor-form {
+  display: grid;
+  gap: 16px;
+  border: 1px solid #252538;
+  border-radius: 8px;
+  background: #11111a;
+  padding: 16px;
+}
+
+.competitor-input-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.competitor-form label {
+  display: grid;
+  gap: 8px;
+  color: #dbffad;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.competitor-form input,
+.competitor-form textarea {
+  width: 100%;
+  border: 1px solid #333348;
+  border-radius: 8px;
+  background: #0d0d14;
+  color: #ededed;
+  padding: 12px 14px;
+  font: inherit;
+  font-size: 15px;
+  outline: none;
+}
+
+.competitor-form input {
+  min-height: 50px;
+}
+
+.competitor-form textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
+.competitor-form input:focus,
+.competitor-form textarea:focus {
+  border-color: #8bc113;
+  box-shadow: 0 0 0 3px rgba(139, 193, 19, 0.18);
+}
+
+.competitor-document table {
+  min-width: 860px;
+}
+
 @media (max-width: 900px) {
   .email-triage-grid,
   .triage-summary,
   .report-builder,
-  .report-controls {
+  .report-controls,
+  .competitor-input-grid {
     grid-template-columns: 1fr;
   }
 

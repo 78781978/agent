@@ -752,6 +752,210 @@ h1 {
   font-weight: 800;
 }
 
+.email-triage-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.email-input-panel,
+.email-results-panel {
+  border: 1px solid #252538;
+  border-radius: 8px;
+  background: #11111a;
+  padding: 16px;
+}
+
+.email-input-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.email-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.email-panel-header strong {
+  color: #f5f5f8;
+}
+
+.email-panel-header button,
+.triage-card button,
+.primary-action {
+  min-height: 40px;
+  border: 1px solid #8bc113;
+  border-radius: 8px;
+  background: #8bc113;
+  color: #101405;
+  padding: 0 14px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.email-panel-header button {
+  border-color: #333348;
+  background: #1d1d2d;
+  color: #ededed;
+}
+
+.email-input-panel textarea {
+  min-height: 260px;
+  resize: vertical;
+  border: 1px solid #333348;
+  border-radius: 8px;
+  background: #0d0d14;
+  color: #ededed;
+  padding: 13px;
+  line-height: 1.5;
+  outline: none;
+}
+
+.email-input-panel textarea:focus {
+  border-color: #8bc113;
+}
+
+.email-results-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.triage-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.triage-summary span {
+  border: 1px solid #333348;
+  border-radius: 8px;
+  background: #171722;
+  padding: 10px;
+  font-size: 13px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.triage-summary .urgent,
+.triage-card.urgent {
+  border-color: #ef4444;
+}
+
+.triage-summary .medium,
+.triage-card.medium {
+  border-color: #eab308;
+}
+
+.triage-summary .low,
+.triage-card.low {
+  border-color: #22c55e;
+}
+
+.triage-summary .spam,
+.triage-card.spam {
+  border-color: #64748b;
+}
+
+.triage-cards {
+  display: grid;
+  gap: 12px;
+}
+
+.triage-card {
+  display: grid;
+  gap: 12px;
+  border: 2px solid #333348;
+  border-radius: 8px;
+  background: #171722;
+  padding: 15px;
+}
+
+.triage-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.triage-card h2 {
+  margin: 0;
+  color: #f5f5f8;
+  font-size: 18px;
+}
+
+.triage-card-header span {
+  white-space: nowrap;
+  color: #dbffad;
+  font-weight: 900;
+}
+
+.triage-card dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.triage-card dl div {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.triage-card dt {
+  color: #a8a8b5;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.triage-card dd {
+  margin: 0;
+  color: #ededed;
+}
+
+.triage-card blockquote {
+  margin: 0;
+  border-left: 3px solid #8bc113;
+  border-radius: 8px;
+  background: #101827;
+  padding: 12px;
+  color: #dfe7f5;
+  line-height: 1.55;
+}
+
+.triage-card button {
+  justify-self: start;
+}
+
+.triage-recommendation {
+  border: 1px solid #33461e;
+  border-radius: 8px;
+  background: #17230f;
+  padding: 13px;
+}
+
+.triage-recommendation strong {
+  color: #dbffad;
+}
+
+.triage-recommendation p {
+  margin: 6px 0 0;
+  color: #e4f5cf;
+}
+
+@media (max-width: 900px) {
+  .email-triage-grid,
+  .triage-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .triage-card dl div {
+    grid-template-columns: 1fr;
+  }
+}
+
 .thinking {
   color: #c8c8d2;
 }

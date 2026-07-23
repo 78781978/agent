@@ -1,3 +1,6 @@
+import { google } from "@ai-sdk/google";
+import { generateText } from "ai";
+
 type SearchSource = {
   title: string;
   url: string;
@@ -17,9 +20,12 @@ function decodeHtml(value: string) {
 }
 
 function stripTags(value: string) {
-  return decodeHtml(value.replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<[^>]+>/g, " "));
+  return decodeHtml(
+    value
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<[^>]+>/g, " "),
+  );
 }
 
 function domainFromUrl(url: string) {
@@ -99,8 +105,8 @@ function extractLiteResults(html: string): SearchSource[] {
 
     const afterLink = html.slice(match.index + match[0].length, match.index + match[0].length + 700);
     const snippet =
-      stripTags(afterLink.match(/<td[^>]*class=['"]result-snippet['"][^>]*>([\s\S]*?)<\/td>/)?.[1] ?? "")
-        || stripTags(afterLink).slice(0, 220);
+      stripTags(afterLink.match(/<td[^>]*class=['"]result-snippet['"][^>]*>([\s\S]*?)<\/td>/)?.[1] ?? "") ||
+      stripTags(afterLink).slice(0, 220);
 
     results.push({
       title,
@@ -201,38 +207,122 @@ function extractUrl(text: string) {
   return text.match(/https?:\/\/[^\s)]+/i)?.[0] ?? "";
 }
 
-function googleFallback(query: string): SearchSource {
+function needsLocalContext(query: string) {
+  const normalized = query.toLowerCase();
+  const hasCity =
+    /\b(w|we|dla|do)\s+[A-ZĄĆĘŁŃÓŚŹŻ][\p{L}-]+/u.test(query) ||
+    /\bkrak[oó]w|warszaw|gda[nń]sk|wroc[łl]aw|pozna[nń]|[łl][oó]d[źz]|szczecin|katowic|goleniów|goleniów\b/i.test(query);
+
+  return (
+    /kino|kinach|repertuar|restauracj|nocleg|hotel|pogoda|wydarzenia lokalne/i.test(normalized) &&
+    !hasCity
+  );
+}
+
+function localContextAnswer(query: string) {
+  return [
+    `## Potrzebuję doprecyzowania: ${query}`,
+    "",
+    "To pytanie zależy od lokalizacji, więc bez miasta mogłabym podać nieprecyzyjną odpowiedź.",
+    "",
+    "Podaj proszę jedno z poniższych:",
+    "- miasto, np. Kraków, Warszawa, Goleniów,",
+    "- nazwę kina, hotelu albo miejsca,",
+    "- link do konkretnej strony, którą mam przeczytać.",
+    "",
+    "Przykład: **Jakie filmy są teraz w kinach w Krakowie?**",
+    "",
+    "Wtedy przygotuję krótkie, konkretne podsumowanie po polsku zamiast odsyłać Cię do samego linku.",
+  ].join("\n");
+}
+
+function extractGroundedSources(result: unknown): SearchSource[] {
+  const maybe = result as {
+    sources?: Array<{ title?: string; url?: string; sourceType?: string }>;
+    experimental_sources?: Array<{ title?: string; url?: string; sourceType?: string }>;
+  };
+
+  const rawSources = maybe.sources ?? maybe.experimental_sources ?? [];
+
+  return uniqueSources(
+    rawSources
+      .map((source) => ({
+        title: source.title?.trim() || (source.url ? domainFromUrl(source.url) : "Źródło"),
+        url: source.url ?? "",
+        snippet: source.sourceType ?? "Źródło użyte przez wyszukiwanie Google",
+      }))
+      .filter((source) => source.url.startsWith("http")),
+  ).slice(0, 6);
+}
+
+async function buildGroundedAnswer(query: string) {
+  const result = await generateText({
+    model: google("gemini-3.1-flash-lite"),
+    tools: {
+      googleSearch: google.tools.googleSearch({}),
+    },
+    system: [
+      "Odpowiadasz po polsku, jasno i konkretnie.",
+      "Najpierw szukasz polskich źródeł. Jeśli ich nie ma, możesz użyć zagranicznych.",
+      "Nie zwracaj samego linku do Google. Przygotuj gotową odpowiedź w formie krótkiego artykułu lub praktycznego podsumowania.",
+      "Jeżeli pytanie wymaga miasta, konkretnej firmy lub linku, dopytaj o brakującą informację zamiast zmyślać.",
+      "Nie pokazuj technicznych kroków wykonywania narzędzi użytkownikowi.",
+    ].join("\n"),
+    prompt: [
+      `Pytanie użytkownika: ${query}`,
+      "",
+      "Zadanie:",
+      "1. Znajdź aktualne informacje.",
+      "2. Streść je po polsku w 4-8 krótkich akapitach lub punktach.",
+      "3. Jeśli temat jest niejednoznaczny, napisz dokładnie, czego brakuje.",
+      "4. Na końcu dodaj sekcję: Źródła.",
+    ].join("\n"),
+  });
+
   return {
-    title: `Otwórz wyniki Google dla: ${query}`,
-    url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
-    snippet:
-      "Automatyczne pobranie wyników nie powiodło się. Ten link pozwala ręcznie sprawdzić aktualne wyniki.",
+    text: result.text.trim(),
+    sources: extractGroundedSources(result),
   };
 }
 
-function buildAnswer(query: string, sources: SearchSource[], automatic = true) {
-  const usedSources = sources.length > 0 ? sources : [googleFallback(query)];
-  const domains = usedSources
-    .slice(0, 4)
-    .map((source) => domainFromUrl(source.url))
-    .join(", ");
+function buildSourceBasedAnswer(query: string, sources: SearchSource[]) {
+  const usedSources = polishFirst(sources).slice(0, 5);
+  const domains = usedSources.map((source) => domainFromUrl(source.url)).join(", ");
 
   return [
     `## Wynik wyszukiwania: ${query}`,
     "",
-    automatic
-      ? `Sprawdziłam dostępne wyniki i najpierw szukałam polskiego kontekstu. Najbardziej przydatne domeny: **${domains}**.`
-      : "Nie udało się automatycznie pobrać wyników z wyszukiwarki. Daję bezpieczny link do Google, żeby można było szybko sprawdzić temat ręcznie.",
+    `Znalazłam wyniki i wybrałam najpierw polski kontekst. Najbardziej przydatne domeny: **${domains}**.`,
     "",
-    "### Najważniejsze informacje",
-    ...usedSources.slice(0, 5).map((source) => `- ${source.snippet || source.title}`),
-    "",
-    "### Co dalej",
-    "Jeśli wynik ma być bardziej precyzyjny, wpisz nazwę miasta, markę, produkt albo wklej konkretny adres strony. Wtedy agent może przeczytać stronę i streścić ją wprost w czacie.",
+    "### Krótkie podsumowanie",
+    ...usedSources.map((source) => `- **${source.title}**: ${source.snippet || "źródło może zawierać szczegóły dotyczące zapytania."}`),
     "",
     "### Źródła",
-    ...usedSources.slice(0, 5).map((source, index) => `${index + 1}. [${source.title}](${source.url})`),
+    ...usedSources.map((source, index) => `${index + 1}. [${source.title}](${source.url})`),
   ].join("\n");
+}
+
+function buildSafeFallback(query: string, error?: unknown) {
+  const reason = error instanceof Error ? error.message : "";
+
+  if (needsLocalContext(query)) {
+    return localContextAnswer(query);
+  }
+
+  return [
+    `## Nie mam jeszcze wystarczających danych: ${query}`,
+    "",
+    "Nie udało mi się teraz pobrać potwierdzonych wyników automatycznie, więc nie będę zmyślać odpowiedzi.",
+    "",
+    "Żeby przygotować rzetelne podsumowanie, wklej proszę:",
+    "- link do oficjalnej strony lub artykułu,",
+    "- pełną nazwę firmy z krajem lub branżą,",
+    "- albo doprecyzuj miasto, jeśli pytanie dotyczy lokalnych wyników.",
+    "",
+    reason ? `Informacja techniczna: ${reason}.` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 export async function POST(request: Request) {
@@ -254,7 +344,7 @@ export async function POST(request: Request) {
           `## Streszczenie strony: ${domainFromUrl(url)}`,
           "",
           content
-            ? `${content.slice(0, 1600)}${content.length > 1600 ? "..." : ""}`
+            ? `${content.slice(0, 1800)}${content.length > 1800 ? "..." : ""}`
             : "Strona została pobrana, ale nie udało się wyciągnąć czytelnej treści.",
           "",
           `Źródło: [${domainFromUrl(url)}](${url})`,
@@ -263,22 +353,39 @@ export async function POST(request: Request) {
       });
     }
 
-    const sources = await fetchSearchResults(query);
+    if (needsLocalContext(query)) {
+      return Response.json({
+        text: localContextAnswer(query),
+        sources: [],
+      });
+    }
 
-    return Response.json({
-      text: buildAnswer(query, sources, sources.length > 0),
-      sources: sources.length > 0 ? sources : [googleFallback(query)],
-    });
+    try {
+      const grounded = await buildGroundedAnswer(query);
+
+      return Response.json({
+        text: grounded.text,
+        sources: grounded.sources,
+      });
+    } catch {
+      const sources = await fetchSearchResults(query);
+
+      if (sources.length > 0) {
+        return Response.json({
+          text: buildSourceBasedAnswer(query, sources),
+          sources,
+        });
+      }
+
+      return Response.json({
+        text: buildSafeFallback(query),
+        sources: [],
+      });
+    }
   } catch (error) {
-    const fallback = googleFallback(query);
-
     return Response.json({
-      text: [
-        buildAnswer(query, [], false),
-        "",
-        `Informacja techniczna: ${error instanceof Error ? error.message : "wyszukiwarka nie odpowiedziała"}.`,
-      ].join("\n"),
-      sources: [fallback],
+      text: buildSafeFallback(query, error),
+      sources: [],
     });
   }
 }

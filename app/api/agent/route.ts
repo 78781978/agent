@@ -5,6 +5,7 @@ import {
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
+  generateText,
   jsonSchema,
   stepCountIs,
   streamText,
@@ -970,6 +971,162 @@ function buildResearchBlockedImageAnswer(query: string, searchOutput: WebSearchR
   ].join("\n");
 }
 
+function removeToolJsonFromAnswer(text: string) {
+  return text
+    .replace(/```(?:json)?\s*\{[\s\S]*?"action_name"[\s\S]*?\}\s*```/gi, "")
+    .replace(/\{\s*"action"\s*:\s*"[^"]+"[\s\S]*?"action_name"\s*:\s*"[^"]+"\s*\}/gi, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function buildSocialImagePrompt(context: string) {
+  return [
+    "Professional modern social media graphic, no text, no logos, no fake screenshots.",
+    "Theme: AI news, artificial intelligence trends, business automation and modern technology.",
+    "Style: clean business-tech composition, dark navy background, lime green and electric blue accents, neural network, data streams, optimistic but professional.",
+    `Context: ${context.slice(0, 1200)}`,
+  ].join("\n");
+}
+
+function createDirectAnswerResponse(
+  messages: UIMessage[],
+  steps: DirectToolStep[],
+  answerParts: string[],
+) {
+  const stream = createUIMessageStream({
+    originalMessages: messages,
+    execute({ writer }) {
+      steps.forEach((step, index) => {
+        const toolCallId = `direct-tool-${Date.now()}-${index}`;
+
+        writer.write({
+          type: "tool-input-available",
+          toolCallId,
+          toolName: step.toolName,
+          input: step.input,
+        } as never);
+        writer.write({
+          type: "tool-output-available",
+          toolCallId,
+          output: step.output,
+        } as never);
+      });
+
+      writer.write({ type: "text-start", id: "direct-answer" } as never);
+      writer.write({
+        type: "text-delta",
+        id: "direct-answer",
+        delta: answerParts.join("\n\n"),
+      } as never);
+      writer.write({ type: "text-end", id: "direct-answer" } as never);
+      writer.write({ type: "finish", finishReason: "stop" } as never);
+    },
+  });
+
+  return createUIMessageStreamResponse({ stream });
+}
+
+async function buildGroundedPostAndImage(
+  query: string,
+  requestContext: string,
+): Promise<{ steps: DirectToolStep[]; answer: string }> {
+  const steps: DirectToolStep[] = [];
+
+  try {
+    const research = await generateText({
+      model: google("gemini-3.1-flash-lite"),
+      system: [
+        "Odpowiadasz po polsku.",
+        "Masz przygotować gotowy materiał do social media na podstawie aktualnych informacji z Google Search.",
+        "Nie wypisuj JSON, akcji narzędzi, nazw technicznych ani instrukcji dla generatora obrazu.",
+        "Zwróć: 1) krótkie podsumowanie trendu, 2) gotowy post z emotikonami, 3) 3-5 hashtagów, 4) krótką listę źródeł jeśli są dostępne.",
+      ].join("\n"),
+      tools: {
+        google_search: google.tools.googleSearch({}),
+      },
+      prompt: [
+        `Temat: ${query}`,
+        `Polecenie użytkownika: ${requestContext}`,
+        "Przygotuj konkretną, gotową odpowiedź. Nie pisz, co robisz. Nie pokazuj surowych danych narzędzi.",
+      ].join("\n"),
+    });
+
+    const cleanText = removeToolJsonFromAnswer(research.text);
+    const sources = (research.sources ?? []).map((source: any) => ({
+      title: source.title ?? source.url ?? "Źródło Google",
+      url: source.url ?? "",
+    }));
+
+    steps.push({
+      toolName: "webSearch",
+      input: { query, provider: "Google Search Grounding" },
+      output: {
+        query,
+        usedQuery: query,
+        scope: "global",
+        summary: cleanText.slice(0, 800),
+        sources,
+        fallbackUrl: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
+        note: "Research wykonany przez Google Search Grounding w Gemini.",
+      },
+    });
+
+    const imagePrompt = buildSocialImagePrompt(cleanText || requestContext);
+    const imageOutput = await generateGoogleImage(imagePrompt);
+
+    steps.push({
+      toolName: "generateImage",
+      input: { prompt: imagePrompt },
+      output: imageOutput,
+    });
+
+    return {
+      steps,
+      answer: [
+        cleanText ||
+          "Przygotowałam roboczy materiał o najnowszych wiadomościach AI, ale model nie zwrócił pełnego tekstu. Spróbuj ponownie za chwilę.",
+        "",
+        imageOutput.ok
+          ? `**Propozycja grafiki:** wygenerowano obraz narzędziem ${imageOutput.provider}.`
+          : `**Propozycja grafiki:** nie udało się wygenerować obrazu. ${imageOutput.error}`,
+      ].join("\n"),
+    };
+  } catch (error) {
+    const fallbackPost = [
+      "**Gotowy post na social media:** 🤖",
+      "",
+      "Sztuczna inteligencja coraz szybciej zmienia sposób pracy firm. Automatyzacje, agenci AI i narzędzia do analizy danych pomagają oszczędzać czas, szybciej obsługiwać klientów i lepiej podejmować decyzje. 🚀",
+      "",
+      "Dla małych firm to dobry moment, żeby zacząć od prostych wdrożeń: uporządkowania zapytań, automatycznych odpowiedzi, analizy dokumentów albo wsparcia sprzedaży. Nie trzeba budować wielkiego systemu od razu — najważniejsze jest wybrać pierwszy proces, który naprawdę zabiera czas. ⚙️",
+      "",
+      "Chcesz sprawdzić, co można zautomatyzować w Twojej firmie? Napisz wiadomość. 📩",
+      "",
+      "#AI #Automatyzacja #AgenciAI #Biznes #NoweTechnologie",
+    ].join("\n");
+    const imagePrompt = buildSocialImagePrompt(`${requestContext}\n${fallbackPost}`);
+    const imageOutput = await generateGoogleImage(imagePrompt);
+
+    steps.push({
+      toolName: "generateImage",
+      input: { prompt: imagePrompt },
+      output: imageOutput,
+    });
+
+    return {
+      steps,
+      answer: [
+        "Nie udało się pobrać aktualnych informacji przez Google Search Grounding, więc przygotowałam bezpieczną wersję roboczą bez podawania świeżych faktów.",
+        "",
+        fallbackPost,
+        "",
+        imageOutput.ok
+          ? `**Propozycja grafiki:** wygenerowano obraz narzędziem ${imageOutput.provider}.`
+          : `**Propozycja grafiki:** nie udało się wygenerować obrazu. ${imageOutput.error}`,
+      ].join("\n"),
+    };
+  }
+}
+
 function buildCompanyClarificationAnswer(
   query: string,
   searchOutput: WebSearchResult | undefined,
@@ -1010,7 +1167,10 @@ async function buildDirectToolResponse(text: string, messages: UIMessage[]) {
   }
 
   if (needsFreshResearchBeforeImage(requestContext)) {
-    return undefined;
+    const query = extractSearchQuery(requestContext);
+    const grounded = await buildGroundedPostAndImage(query, requestContext);
+
+    return createDirectAnswerResponse(messages, grounded.steps, [grounded.answer]);
   }
 
   if (plan.length === 0) {

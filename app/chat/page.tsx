@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { AppNav } from "../../components/AppNav";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useChat } from "@ai-sdk/react";
+import { clearSession } from "../../lib/auth-client";
 
 type ChatMode = "casual" | "expert" | "creative";
 type ModelChoice = "flash" | "pro";
@@ -114,6 +116,10 @@ function buildConversationMemoryFromUi(messages: UIMessage[]) {
   );
 }
 
+function isAuthTokenError(message: string) {
+  return /jwt issued at future|jwt|token|sesja|zaloguj|pgrst303/i.test(message);
+}
+
 async function readJsonResponse(response: Response) {
   const text = await response.text();
   if (!text.trim()) return {};
@@ -126,6 +132,7 @@ async function readJsonResponse(response: Response) {
 }
 
 export default function Home() {
+  const router = useRouter();
   const [input, setInput] = useState("");
   const [mode, setMode] = useState<ChatMode>("casual");
   const [model, setModel] = useState<ModelChoice>("flash");
@@ -151,12 +158,28 @@ export default function Home() {
   const pendingModeRef = useRef<ChatMode>("casual");
   const pendingModelRef = useRef<ModelChoice>("flash");
 
+  function handleAuthTokenError(message: string) {
+    if (!isAuthTokenError(message)) {
+      return false;
+    }
+
+    clearSession();
+    setPersistenceError(
+      "Sesja logowania była nieaktualna albo zegar komputera jest przesunięty. Wyczyściłam sesję - zaloguj się ponownie.",
+    );
+    window.setTimeout(() => router.replace("/login"), 1200);
+    return true;
+  }
+
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
         api: "/api/chat",
         prepareSendMessagesRequest({ messages, body }) {
           const visibleMemory = buildConversationMemoryFromUi(messages);
+          const requestBody = body as
+            | { userProfile?: { name?: string | null; preferences?: Record<string, string> } }
+            | undefined;
 
           return {
             body: {
@@ -164,7 +187,7 @@ export default function Home() {
               messages,
               mode,
               model,
-              userProfile: { name: userName || null, preferences },
+              userProfile: requestBody?.userProfile || { name: userName || null, preferences },
               longTermMemory: visibleMemory || lastConversationMemory,
             },
           };
@@ -258,7 +281,8 @@ export default function Home() {
           })));
         }
       } catch (loadError) {
-        if (active) setPersistenceError(loadError instanceof Error ? loadError.message : "Błąd historii.");
+        const message = loadError instanceof Error ? loadError.message : "Błąd historii.";
+        if (active && !handleAuthTokenError(message)) setPersistenceError(message);
       } finally {
         if (active) setHistoryLoading(false);
       }
@@ -286,8 +310,11 @@ export default function Home() {
           setUserName(data.profile.name || "");
           setPreferences(data.profile.preferences || {});
         }
-      } catch (profileError) {
+    } catch (profileError) {
+      const message = profileError instanceof Error ? profileError.message : "";
+      if (!handleAuthTokenError(message)) {
         console.warn("Profil nie został wczytany, ale czat działa dalej.", profileError);
+      }
       } finally {
         if (active) setProfileLoading(false);
       }
@@ -307,8 +334,13 @@ export default function Home() {
       if (!response.ok) throw new Error(data.error || "Nie udało się zapisać profilu.");
       setUserName(data.profile.name || "");
       setPreferences(data.profile.preferences || {});
+      return data.profile as { name?: string | null; preferences?: Record<string, string> };
     } catch (profileError) {
-      console.warn("Profil nie został zapisany, ale wiadomość zostanie wysłana.", profileError);
+      const message = profileError instanceof Error ? profileError.message : "";
+      if (!handleAuthTokenError(message)) {
+        console.warn("Profil nie został zapisany, ale wiadomość zostanie wysłana.", profileError);
+      }
+      return null;
     }
   }
 
@@ -351,7 +383,8 @@ export default function Home() {
       if (!response.ok) throw new Error(data.error || "Nie udało się zapisać wiadomości.");
       setPersistenceError("");
     } catch (saveError) {
-      setPersistenceError(saveError instanceof Error ? saveError.message : "Błąd zapisu historii.");
+      const message = saveError instanceof Error ? saveError.message : "Błąd zapisu historii.";
+      if (!handleAuthTokenError(message)) setPersistenceError(message);
     }
   }
 
@@ -371,7 +404,19 @@ export default function Home() {
 
     try {
       const details = profileDetails(trimmed);
-      if (details.name || details.preference) void updateProfile(details);
+      let profileForMessage = {
+        name: userName || null,
+        preferences,
+      };
+
+      if (details.name || details.preference) {
+        const savedProfile = await updateProfile(details);
+        profileForMessage = {
+          name: savedProfile?.name || details.name || userName || null,
+          preferences: savedProfile?.preferences || preferences,
+        };
+      }
+
       const activeConversationId = conversationId ?? (await createConversation(trimmed));
       await saveMessage(activeConversationId, "user", trimmed);
       await sendMessage(
@@ -380,11 +425,14 @@ export default function Home() {
           body: {
             mode,
             model,
+            userProfile: profileForMessage,
           },
         },
       );
     } catch (sendError) {
-      setPersistenceError(sendError instanceof Error ? sendError.message : "Nie udało się wysłać wiadomości.");
+      const message =
+        sendError instanceof Error ? sendError.message : "Nie udało się wysłać wiadomości.";
+      if (!handleAuthTokenError(message)) setPersistenceError(message);
       setInput(trimmed);
     }
   }
@@ -462,7 +510,11 @@ export default function Home() {
     try {
       await createConversation();
     } catch (newConversationError) {
-      setPersistenceError(newConversationError instanceof Error ? newConversationError.message : "Nie udało się utworzyć rozmowy.");
+      const message =
+        newConversationError instanceof Error
+          ? newConversationError.message
+          : "Nie udało się utworzyć rozmowy.";
+      if (!handleAuthTokenError(message)) setPersistenceError(message);
     }
   }
 

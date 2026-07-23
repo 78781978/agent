@@ -190,8 +190,8 @@ type GoogleImageResponse = {
 
 type GenerateImageResult = Awaited<ReturnType<typeof generateGoogleImage>>;
 
-function useSearchGrounding(): Record<string, any> {
-  if (!isSearchGroundingEnabled) {
+function useSearchGrounding(force = false): Record<string, any> {
+  if (!force && !isSearchGroundingEnabled) {
     return {};
   }
 
@@ -1009,6 +1009,10 @@ async function buildDirectToolResponse(text: string, messages: UIMessage[]) {
     plan.push("generateImage");
   }
 
+  if (needsFreshResearchBeforeImage(requestContext)) {
+    return undefined;
+  }
+
   if (plan.length === 0) {
     return undefined;
   }
@@ -1773,6 +1777,7 @@ export async function POST(request: Request) {
   const selectedModel = getModel(model);
   const latestUserText = getLatestUserText(messages);
   const directToolResponse = await buildDirectToolResponse(latestUserText, messages);
+  const forceGroundingForCurrentRequest = needsFreshResearchBeforeImage(latestUserText);
 
   if (directToolResponse) {
     return directToolResponse;
@@ -1784,6 +1789,7 @@ export async function POST(request: Request) {
     messages: await convertToModelMessages(messages),
     stopWhen: stepCountIs(maxSteps),
     tools: {
+      ...useSearchGrounding(forceGroundingForCurrentRequest),
       searchKnowledge: tool({
         description:
           "Wyszukuje informacje w bazie wiedzy firmy: cenniki, pakiety, FAQ, regulaminy, oferty, warunki i procedury. Używaj zawsze, gdy użytkownik pyta o ceny, pakiety, koszty, ofertę, regulamin, procedury albo informacje firmowe.",

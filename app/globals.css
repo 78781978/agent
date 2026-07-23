@@ -945,9 +945,157 @@ h1 {
   color: #e4f5cf;
 }
 
+.report-builder {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  border: 1px solid #252538;
+  border-radius: 8px;
+  background: #11111a;
+  padding: 16px;
+}
+
+.report-builder label {
+  display: grid;
+  gap: 8px;
+  color: #dbffad;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.report-builder input {
+  min-height: 48px;
+  border: 1px solid #333348;
+  border-radius: 8px;
+  background: #0d0d14;
+  color: #ededed;
+  padding: 0 14px;
+  font-size: 16px;
+  outline: none;
+}
+
+.report-builder input:focus {
+  border-color: #8bc113;
+}
+
+.report-builder button,
+.report-actions button {
+  min-height: 48px;
+  border: 1px solid #8bc113;
+  border-radius: 8px;
+  background: #8bc113;
+  color: #101405;
+  padding: 0 18px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.report-form {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #252538;
+  border-radius: 8px;
+  background: #11111a;
+  padding: 16px;
+}
+
+.report-label {
+  color: #dbffad;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.report-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.report-input {
+  width: 100%;
+  min-height: 52px;
+  border: 1px solid #333348;
+  border-radius: 8px;
+  background: #0d0d14;
+  color: #ededed;
+  padding: 0 16px;
+  font: inherit;
+  font-size: 16px;
+  outline: none;
+}
+
+.report-input:focus {
+  border-color: #8bc113;
+  box-shadow: 0 0 0 3px rgba(139, 193, 19, 0.18);
+}
+
+.report-button {
+  min-height: 52px;
+  border: 1px solid #8bc113;
+  border-radius: 8px;
+  background: #8bc113;
+  color: #101405;
+  padding: 0 22px;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.report-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.report-output {
+  display: grid;
+  gap: 14px;
+}
+
+.report-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #263858;
+  border-radius: 8px;
+  background: #111827;
+  padding: 12px 14px;
+}
+
+.report-actions span {
+  color: #c8d8ff;
+  font-weight: 800;
+}
+
+.report-document {
+  width: 100%;
+  max-width: none;
+  border: 1px solid #252538;
+  border-radius: 8px;
+  background: #151521;
+  padding: 20px;
+}
+
+.report-document h2:first-child {
+  font-size: 28px;
+}
+
+.report-document a {
+  color: #a9c4ff;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 @media (max-width: 900px) {
   .email-triage-grid,
-  .triage-summary {
+  .triage-summary,
+  .report-builder,
+  .report-controls {
     grid-template-columns: 1fr;
   }
 

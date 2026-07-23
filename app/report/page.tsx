@@ -194,18 +194,12 @@ export default function ReportPage() {
 
       while (true) {
         const { value, done } = await reader.read();
-
-        if (done) {
-          break;
-        }
-
+        if (done) break;
         setReport((current) => current + decoder.decode(value, { stream: true }));
       }
     } catch (submitError) {
       setError(
-        submitError instanceof Error
-          ? submitError.message
-          : "Nie udało się wygenerować raportu.",
+        submitError instanceof Error ? submitError.message : "Nie udało się wygenerować raportu.",
       );
     } finally {
       setIsLoading(false);
@@ -223,10 +217,10 @@ export default function ReportPage() {
 
         <header className="chat-header">
           <div>
-            <p className="eyebrow">Lekcja 8 · Warsztat 2</p>
+            <p className="eyebrow">Lekcja 8 - Warsztat 2</p>
             <h1>📊 Generator raportów</h1>
             <p className="subtitle">
-              Opisz temat - agent napisze raport biznesowy z sekcjami, analizą i wnioskami.
+              Opisz temat, a agent przygotuje raport biznesowy z sekcjami, analizą i wnioskami.
             </p>
             <div className="sample-questions" aria-label="Przykładowe raporty">
               {reportExamples.map((example) => (
@@ -239,19 +233,29 @@ export default function ReportPage() {
           <div className="model-pill expert">raport</div>
         </header>
 
-        <section className="report-builder">
-          <label>
+        <form
+          className="report-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            generateReport();
+          }}
+        >
+          <label className="report-label" htmlFor="report-topic">
             O czym ma być raport?
+          </label>
+          <div className="report-controls">
             <input
+              className="report-input"
+              id="report-topic"
               onChange={(event) => setTopic(event.target.value)}
               placeholder="Np. Rynek AI w Polsce w 2026 roku..."
               value={topic}
             />
-          </label>
-          <button type="button" onClick={generateReport} disabled={isLoading || !topic.trim()}>
-            {isLoading ? "📊 Generuję..." : "📊 Generuj raport"}
-          </button>
-        </section>
+            <button className="report-button" type="submit" disabled={isLoading || !topic.trim()}>
+              {isLoading ? "📊 Generuję..." : "📊 Generuj raport"}
+            </button>
+          </div>
+        </form>
 
         {error && (
           <div className="error-box">
@@ -266,7 +270,8 @@ export default function ReportPage() {
           {!report && !isLoading && (
             <div className="empty-state">
               <p>
-                Wpisz temat raportu. Agent przygotuje streszczenie, dane, analizę, rekomendacje i źródła.
+                Wpisz temat raportu. Agent przygotuje streszczenie, dane, analizę, rekomendacje i
+                źródła.
               </p>
             </div>
           )}

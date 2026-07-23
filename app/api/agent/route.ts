@@ -1,4 +1,4 @@
-﻿import { google } from "@ai-sdk/google";
+import { google } from "@ai-sdk/google";
 import { searchKnowledge } from "../../../lib/knowledge";
 import { getAuthenticatedUser } from "../../../lib/supabase";
 import {
@@ -878,6 +878,50 @@ function buildResearchArticle(
   ].join("\n");
 }
 
+function isCompanyLogoResearchTask(text: string) {
+  return (
+    /\b(logo|znak|identyfikacj|brand|branding)\b/i.test(text) &&
+    /\b(firma|firmy|dla nich|co robi|czym sie zajmuje|czym się zajmuje|kim jest|kto to|jaka to firma|co to za firma)\b/i.test(
+      text,
+    )
+  );
+}
+
+function hasConfirmedCompanyResearch(
+  searchOutput: WebSearchResult | undefined,
+  pageOutput: Awaited<ReturnType<typeof readWebPage>> | undefined,
+) {
+  if (!searchOutput?.sources.length) {
+    return false;
+  }
+
+  return collectResearchFacts(searchOutput, pageOutput).length > 0;
+}
+
+function buildCompanyClarificationAnswer(
+  query: string,
+  searchOutput: WebSearchResult | undefined,
+) {
+  const reason = searchOutput?.sources.length
+    ? "znalezione wyniki nie dają mi jeszcze wystarczająco pewnego obrazu firmy"
+    : "wyszukiwarka nie zwróciła potwierdzonych wyników w aplikacji";
+
+  return [
+    `Nie wygeneruję jeszcze logo dla zapytania **${query}**, bo ${reason}.`,
+    "",
+    "Żeby nie stworzyć przypadkowego logo dla złej firmy, potrzebuję doprecyzowania:",
+    "",
+    "**O jaką dokładnie firmę chodzi?**",
+    "",
+    "Podeślij proszę jedną z tych rzeczy:",
+    "- oficjalną stronę WWW firmy,",
+    "- link do profilu LinkedIn lub Google Maps,",
+    "- pełną nazwę firmy z krajem albo branżą.",
+    "",
+    "Gdy to podasz, przygotuję krótki opis działalności i dopiero wtedy wygeneruję logo dopasowane do właściwej firmy.",
+  ].join("\n");
+}
+
 async function buildDirectToolResponse(text: string, messages: UIMessage[]) {
   const plan = detectToolPlan(text);
   const businessTask = isBusinessRevenueTask(text);
@@ -945,6 +989,22 @@ async function buildDirectToolResponse(text: string, messages: UIMessage[]) {
     );
   }
 
+  let clarificationAnswer: string | undefined;
+
+  if (isCompanyLogoResearchTask(text)) {
+    const searchOutput = steps.find((step) => step.toolName === "webSearch")
+      ?.output as WebSearchResult | undefined;
+    const pageOutput = steps.find((step) => step.toolName === "readWebPage")
+      ?.output as Awaited<ReturnType<typeof readWebPage>> | undefined;
+
+    if (!hasConfirmedCompanyResearch(searchOutput, pageOutput)) {
+      clarificationAnswer = buildCompanyClarificationAnswer(
+        searchOutput?.query ?? extractSearchQuery(text),
+        searchOutput,
+      );
+    }
+  }
+
   if (plan.includes("generateImage")) {
     const searchOutput = steps.find((step) => step.toolName === "webSearch")
       ?.output as WebSearchResult | undefined;
@@ -957,16 +1017,21 @@ async function buildDirectToolResponse(text: string, messages: UIMessage[]) {
     ]
       .filter(Boolean)
       .join("\n");
-    const output = await generateGoogleImage(prompt);
 
-    steps.push({
-      toolName: "generateImage",
-      input: { prompt },
-      output,
-    });
+    if (!clarificationAnswer) {
+      const output = await generateGoogleImage(prompt);
+
+      steps.push({
+        toolName: "generateImage",
+        input: { prompt },
+        output,
+      });
+    }
   }
 
-  if (!businessTask && plan.includes("webSearch") && plan.includes("generateImage")) {
+  if (clarificationAnswer) {
+    answerParts.push(clarificationAnswer);
+  } else if (!businessTask && plan.includes("webSearch") && plan.includes("generateImage")) {
     const searchOutput = steps.find((step) => step.toolName === "webSearch")
       ?.output as WebSearchResult | undefined;
     const pageOutput = steps.find((step) => step.toolName === "readWebPage")

@@ -1,5 +1,6 @@
-﻿import { google } from "@ai-sdk/google";
+import { google } from "@ai-sdk/google";
 import { searchKnowledge } from "../../../lib/knowledge";
+import { getAuthenticatedUser, supabaseRequest } from "../../../lib/supabase";
 import {
   convertToModelMessages,
   jsonSchema,
@@ -111,6 +112,16 @@ function getModel(value: unknown): ModelChoice {
   return "flash";
 }
 
+async function getUserProfile(userId: string, accessToken: string) {
+  const rows = await supabaseRequest<UserProfile[]>(
+    `user_profiles?select=id,name,preferences&id=eq.${encodeURIComponent(userId)}&limit=1`,
+    {},
+    accessToken,
+  ).catch(() => []);
+
+  return rows[0] ?? null;
+}
+
 const modelIds: Record<ModelChoice, string> = {
   flash: "gemini-3.1-flash-lite",
   pro: "gemini-3.1-flash-lite",
@@ -157,6 +168,12 @@ type GenerateImageInput = {
 
 type SearchKnowledgeInput = {
   query: string;
+};
+
+type UserProfile = {
+  id: string;
+  name: string | null;
+  preferences: Record<string, string> | null;
 };
 
 type GoogleImagePart = {
@@ -499,6 +516,7 @@ async function readWebPage(url: string) {
 }
 
 export async function POST(request: Request) {
+  const user = await getAuthenticatedUser(request);
   const { messages, mode, model, userProfile, longTermMemory } = (await request.json()) as {
     messages: UIMessage[];
     mode?: ChatMode;
@@ -509,13 +527,18 @@ export async function POST(request: Request) {
 
   const selectedMode = getMode(mode);
   const selectedModel = getModel(model);
+  const storedProfile = await getUserProfile(user.id, user.accessToken);
+  const profileForPrompt = {
+    name: storedProfile?.name || userProfile?.name || null,
+    preferences: storedProfile?.preferences || userProfile?.preferences || {},
+  };
 
   const result = streamText({
     model: google(modelIds[selectedModel]),
     system: `${prompts[selectedMode]}${internetRules}${knowledgeRules}\n\n${
-      userProfile?.name
-        ? `Użytkownik ma na imię ${userProfile.name}. Zwracaj się do niego po imieniu. Bądź ciepły i personalny — to Twój stały użytkownik. Zapamiętane preferencje: ${JSON.stringify(userProfile.preferences ?? {})}.`
-        : "To nowy użytkownik. Przedstaw się krótko i zapytaj, jak ma na imię. Gdy poda imię, podziękuj i używaj go w rozmowie."
+      profileForPrompt.name
+        ? `Rozmawiasz z użytkownikiem: ${profileForPrompt.name}. Zwracaj się do niego po imieniu. Jeśli właśnie podał swoje imię, odpowiedz naturalnie: "Miło Cię poznać, ${profileForPrompt.name}! Zapamiętam." Zapamiętane preferencje: ${JSON.stringify(profileForPrompt.preferences ?? {})}.`
+        : "Rozmawiasz z użytkownikiem: nieznany. Jeśli to początek rozmowy albo użytkownik nie podał jeszcze imienia, zapytaj grzecznie: jak masz na imię?"
     }\n\n${
       longTermMemory?.trim()
         ? `## PAMIĘĆ OSTATNIEJ ROZMOWY
@@ -543,7 +566,7 @@ ${longTermMemory.slice(0, 6000)}`
           required: ["query"],
           additionalProperties: false,
         }),
-        execute: async ({ query }) => searchKnowledge(query),
+        execute: async ({ query }) => searchKnowledge(query, 0.5, 5, user.id, user.accessToken),
       }),      calculator: tool({
         description:
           "Liczy wyrazenia matematyczne, VAT, procenty, kwoty netto/brutto i proste dzialania.",

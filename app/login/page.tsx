@@ -32,6 +32,11 @@ export default function LoginPage() {
         await signIn(email.trim(), password);
       }
 
+      await fetch("/api/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      }).catch(() => undefined);
+
       const next = new URLSearchParams(window.location.search).get("next") || "/";
       router.replace(next.startsWith("/") ? next : "/");
     } catch (authError) {

@@ -36,7 +36,10 @@ Reguły wiedzy, które możesz stosować edukacyjnie:
 - Pierwsze tygodnie po operacji są okresem adaptacji i gojenia; pacjent powinien trzymać się zaleceń zespołu.
 - Płyny zwykle przyjmuje się często i małymi łykami; powszechna zasada edukacyjna to oddzielanie płynów od posiłków, ale szczegóły ma ustalić prowadzący specjalista.
 - Białko jest ważne dla regeneracji, ale indywidualny cel musi wynikać z zaleceń lekarza lub dietetyka.
+- W wielu materiałach edukacyjnych po operacji pojawia się orientacyjny cel płynów około 1,5-1,9 l dziennie, czyli około 64 oz, jeśli lekarz nie zaleci inaczej. Nie traktuj tego jako indywidualnego zlecenia medycznego.
+- W materiałach edukacyjnych często pojawia się białko jako priorytet po operacji, np. minimum około 60 g dziennie lub 60-100 g dziennie zależnie od programu i pacjenta. Indywidualny cel ustala specjalista.
 - Dzienniczek powinien zapisywać: godzinę, płyny, posiłek, konsystencję, tolerancję, objawy, leki/suplementy zgodnie z zaleceniami, pytania na wizytę.
+- Jeśli pacjent prosi o tabelę na cały dzień, rozpisz pełną tabelę od rana do wieczora, z kolumną sumy płynów narastająco i miejscem na białko. Nie dawaj urwanego przykładu z wielokropkiem.
 - Po operacji ważna jest długoterminowa kontrola, badania i monitorowanie niedoborów; nie jest to jednorazowa opieka.
 - Przy objawach alarmowych odpowiedź ma być krótka i kierować do pilnego kontaktu, bez długiej edukacji.
 `;
@@ -117,15 +120,7 @@ function detectIntent(goal: string, notes: string): Intent {
     return "report";
   }
 
-  if (/(jadłospis|jadlospis|menu|posiłek|posilek|śniadanie|sniadanie|obiad|kolacja|co jeść|co jesc|przykład jedzenia)/.test(text)) {
-    return "meal-idea";
-  }
-
-  if (/(boję|boje|stres|panik|motyw|nie daję|nie daje|trudno|załam|zalam|wsparcie|emocj)/.test(text)) {
-    return "motivation";
-  }
-
-  if (/(dzienniczek|notować|notowac|posiłk|posilk|jedzenia|objaw|tolerancj)/.test(text)) {
+  if (/(dzienniczek|tabela|cały dzień|caly dzien|całodni|calodni|notować|notowac|monitor|zapisywać|zapisywac|płynów|plynow|posiłków|posilkow|objaw|tolerancj)/.test(text)) {
     return "diary";
   }
 
@@ -139,6 +134,14 @@ function detectIntent(goal: string, notes: string): Intent {
 
   if (/(etap|płynn|plynn|papkow|miękk|miekk|stał|stal|rozszerz)/.test(text)) {
     return "diet-stage";
+  }
+
+  if (/(jadłospis|jadlospis|menu|posiłek|posilek|śniadanie|sniadanie|obiad|kolacja|co jeść|co jesc|przykład jedzenia)/.test(text)) {
+    return "meal-idea";
+  }
+
+  if (/(boję|boje|stres|panik|motyw|nie daję|nie daje|trudno|załam|zalam|wsparcie|emocj)/.test(text)) {
+    return "motivation";
   }
 
   if (/(wizy|konsult|pytan|chirurg|dietetyk|przygotowa)/.test(text)) {
@@ -198,17 +201,36 @@ function intentContent(intent: Intent, stage: string, goal: string, notes: strin
   if (intent === "diary") {
     return [
       "## 2. Co zrobić teraz",
-      "- Przez najbliższe 24 godziny zapisuj każdą porcję płynu, posiłku i objawy po jedzeniu.",
-      "- Nie oceniaj siebie. Dzienniczek ma pomóc specjaliście zobaczyć fakty.",
-      "- Przy każdym posiłku dopisz konsystencję i tolerancję.",
+      "- Potraktuj tabelę jako edukacyjny wzór do omówienia z dietetykiem lub zespołem bariatrycznym.",
+      "- Jeśli nie masz indywidualnego limitu płynów, przyjmij roboczy cel kontroli: około 1500-1900 ml płynów dziennie, małymi łykami. Dokładny cel potwierdź ze specjalistą.",
+      "- Płyny zapisuj oddzielnie od posiłków. W wielu zaleceniach edukacyjnych pojawia się zasada około 30 minut przerwy przed i po posiłku.",
+      "- Białko wpisuj zgodnie z zaleceniem specjalisty. W materiałach edukacyjnych często pojawia się minimum około 60 g/dobę albo 60-100 g/dobę zależnie od pacjenta i programu.",
       "- Jeśli pojawią się objawy alarmowe, nie czekaj do kolejnej wizyty.",
       "",
-      "## 3. Dzienniczek pacjenta",
-      "| Godzina | Płyny | Posiłek / konsystencja | Objawy po posiłku | Pytanie do specjalisty |",
-      "|---|---|---|---|---|",
-      "| Rano | ilość i rodzaj płynu | co zjedzono | brak / nudności / ból / zgaga | co wymaga omówienia |",
-      "| Południe | ilość i rodzaj płynu | co zjedzono | brak / nudności / ból / zgaga | co wymaga omówienia |",
-      "| Wieczór | ilość i rodzaj płynu | co zjedzono | brak / nudności / ból / zgaga | co wymaga omówienia |",
+      "## 3. Dzienniczek na cały dzień",
+      "| Godzina | Płyny - małymi łykami | Suma płynów | Posiłek / etap / konsystencja | Białko - do wpisania | Objawy i tolerancja |",
+      "|---|---:|---:|---|---|---|",
+      "| 07:00 | 100 ml wody niegazowanej | 100 ml | - | - | samopoczucie po przebudzeniu |",
+      "| 08:00 | 100 ml lekkiej herbaty lub wody | 200 ml | posiłek zgodny z etapem, np. płynny/papkowaty/miękki według zaleceń | wpisz produkt białkowy lub zalecony preparat | tolerancja po posiłku |",
+      "| 09:30 | 150 ml wody | 350 ml | - | - | czy występują nudności, ból, zgaga |",
+      "| 10:30 | 100 ml płynu bez cukru | 450 ml | mała porcja zgodna z etapem | wpisz białko, jeśli było | tolerancja |",
+      "| 12:00 | 150 ml wody | 600 ml | - | - | energia, pragnienie, suchość w ustach |",
+      "| 13:00 | 100 ml płynu między posiłkami | 700 ml | mała porcja obiadowa zgodna z etapem | wpisz białko, jeśli było | objawy po posiłku |",
+      "| 14:30 | 150 ml wody | 850 ml | - | - | tolerancja płynów |",
+      "| 15:30 | 100 ml płynu bez cukru | 950 ml | mała porcja zgodna z etapem | wpisz białko, jeśli było | tolerancja |",
+      "| 17:00 | 150 ml wody | 1100 ml | - | - | samopoczucie |",
+      "| 18:00 | 100 ml płynu między posiłkami | 1200 ml | mała kolacja zgodna z etapem | wpisz białko, jeśli było | objawy po posiłku |",
+      "| 19:30 | 150 ml wody lub lekkiego naparu | 1350 ml | - | - | tolerancja płynów |",
+      "| 21:00 | 150 ml wody | 1500 ml | - | podsumuj białko z dnia | czy cel płynów był realny |",
+      "| 22:00 opcjonalnie | 100-200 ml, jeśli specjalista pozwala i dobrze tolerujesz | 1600-1700 ml | - | - | tylko jeśli nie powoduje dyskomfortu |",
+      "",
+      "## 3a. Podsumowanie dnia do pokazania dietetykowi",
+      "| Obszar | Wynik dnia | Pytanie do specjalisty |",
+      "|---|---|---|",
+      "| Płyny | wpisz sumę: np. 1500 ml / 1700 ml / 1900 ml | czy mój cel płynów jest właściwy? |",
+      "| Białko | wpisz ilość według etykiet lub zaleceń | czy realizuję swój indywidualny cel? |",
+      "| Tolerancja | wpisz produkty tolerowane i nietolerowane | co mogę bezpiecznie zmienić? |",
+      "| Objawy | wpisz nudności, ból, wymioty, zgagę, osłabienie | czy wymaga to kontroli? |",
     ].join("\n");
   }
 
@@ -390,6 +412,17 @@ export async function POST(request: Request) {
       { error: "Wybierz etap pacjenta i wpisz cel wsparcia." },
       { status: 400 },
     );
+  }
+
+  if (
+    intent === "diary" &&
+    /tabela|cały dzień|caly dzien|całodni|calodni|wody|płyn|plyn/.test(`${goal} ${notes}`.toLowerCase())
+  ) {
+    return new Response(localBariatricPlan(stage, goal, notes), {
+      headers: {
+        "content-type": "text/plain; charset=utf-8",
+      },
+    });
   }
 
   try {

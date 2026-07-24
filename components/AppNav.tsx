@@ -19,6 +19,7 @@ const menuItems = [
   { href: "/report", label: "Raporty" },
   { href: "/competitor", label: "Konkurencja" },
   { href: "/offer", label: "Oferta AI" },
+  { href: "/bariatric", label: "BariCare AI" },
   { href: "/history", label: "Historia" },
   { href: "/upload", label: "Baza wiedzy" },
   { href: "/knowledge", label: "Podgląd wiedzy" },
@@ -44,11 +45,7 @@ export function AppNav({ active }: AppNavProps) {
         Wyloguj
       </button>
       {menuItems.map((item) => (
-        <Link
-          className={active === item.href ? "active" : undefined}
-          href={item.href}
-          key={item.href}
-        >
+        <Link className={active === item.href ? "active" : undefined} href={item.href} key={item.href}>
           {item.label}
         </Link>
       ))}

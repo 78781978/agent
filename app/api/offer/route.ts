@@ -1,5 +1,5 @@
 import { google } from "@ai-sdk/google";
-import { jsonSchema, stepCountIs, streamText, tool } from "ai";
+import { generateText, jsonSchema, stepCountIs, tool } from "ai";
 
 export const maxDuration = 60;
 
@@ -263,7 +263,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = streamText({
+    const result = await generateText({
       model: google("gemini-3.1-flash-lite"),
       system: systemPrompt,
       prompt: [
@@ -315,7 +315,11 @@ export async function POST(request: Request) {
       stopWhen: stepCountIs(maxSteps),
     });
 
-    return result.toTextStreamResponse();
+    return new Response(result.text?.trim() || localOffer(brief), {
+      headers: {
+        "content-type": "text/plain; charset=utf-8",
+      },
+    });
   } catch {
     return new Response(localOffer(brief), {
       headers: {

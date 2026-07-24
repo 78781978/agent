@@ -57,6 +57,12 @@ const quickActions = [
     description: "Nowy scenariusz W4: diagnoza klienta, zakres MVP, wycena i gotowy e-mail.",
   },
   {
+    href: "/bariatric",
+    icon: "BC",
+    label: "BariCare AI",
+    description: "Asystent pacjenta przed i po operacji bariatrycznej: pytania, dzienniczek i raport.",
+  },
+  {
     href: "/wash",
     icon: "W",
     label: "Agent marketingowy myjni",

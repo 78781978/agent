@@ -72,8 +72,8 @@ function renderMarkdown(text: string) {
           <table>
             <thead>
               <tr>
-                {header.map((cell) => (
-                  <th key={cell}>{renderInline(cell)}</th>
+                {header.map((cell, cellIndex) => (
+                  <th key={`${cell}-${cellIndex}`}>{renderInline(cell)}</th>
                 ))}
               </tr>
             </thead>
@@ -111,8 +111,8 @@ function renderMarkdown(text: string) {
 
       blocks.push(
         <ol key={`ol-${index}`}>
-          {items.map((item) => (
-            <li key={item}>{renderInline(item)}</li>
+          {items.map((item, itemIndex) => (
+            <li key={`${item}-${itemIndex}`}>{renderInline(item)}</li>
           ))}
         </ol>,
       );
@@ -129,8 +129,8 @@ function renderMarkdown(text: string) {
 
       blocks.push(
         <ul key={`ul-${index}`}>
-          {items.map((item) => (
-            <li key={item}>{renderInline(item)}</li>
+          {items.map((item, itemIndex) => (
+            <li key={`${item}-${itemIndex}`}>{renderInline(item)}</li>
           ))}
         </ul>,
       );
@@ -183,19 +183,17 @@ export default function OfferPage() {
         body: JSON.stringify({ brief: trimmed }),
       });
 
-      if (!response.ok || !response.body) {
-        const data = (await response.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(data?.error || "Agent ofert nie zwrócił odpowiedzi.");
+      const text = await response.text();
+
+      if (!response.ok) {
+        throw new Error(text || "Agent ofert nie zwrócił odpowiedzi.");
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        setOffer((current) => current + decoder.decode(value, { stream: true }));
+      if (!text.trim()) {
+        throw new Error("Agent zwrócił pustą odpowiedź. Spróbuj ponownie krótszym opisem klienta.");
       }
+
+      setOffer(text);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Nie udało się wygenerować oferty.");
     } finally {
@@ -265,8 +263,8 @@ export default function OfferPage() {
           {!offer && !isLoading && (
             <div className="empty-state">
               <p>
-                Wpisz realny opis klienta. Agent przygotuje ofertę, którą możesz wkleić do maila lub
-                omówić podczas rozmowy handlowej.
+                Wpisz realny opis klienta. Agent przygotuje ofertę, którą możesz wkleić do maila lub omówić
+                podczas rozmowy handlowej.
               </p>
             </div>
           )}

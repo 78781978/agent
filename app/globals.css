@@ -2236,11 +2236,30 @@ h1 {
   top: 0;
   width: 248px;
   height: 100vh;
+  max-height: 100vh;
   padding: 22px 16px;
   border-right: 1px solid rgba(255, 255, 255, 0.09);
   background: rgba(10, 14, 26, 0.86);
   backdrop-filter: blur(18px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: rgba(139, 193, 19, 0.85) rgba(255, 255, 255, 0.06);
+  scrollbar-width: thin;
   z-index: 20;
+}
+
+.dashboard-sidebar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.dashboard-sidebar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.dashboard-sidebar::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(139, 193, 19, 0.85);
 }
 
 .dashboard-brand {

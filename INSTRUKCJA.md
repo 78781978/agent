@@ -1,37 +1,16 @@
-# Lekcja 9 / W4 - Briefingi
+﻿# Poprawka: Enter w propozycjach hoteli
 
-Wgraj zawartość tego folderu do głównego katalogu repozytorium GitHub `78781978/agent`.
+Wgraj do GitHuba dokładnie te pliki z zachowaniem ścieżek:
 
-## Pliki do podmiany / dodania
+1. app/travel/page.tsx
+2. app/globals.css
 
-1. `app/page.tsx`
-   - podmień istniejący plik,
-   - zawiera wcześniejszą poprawkę ikon na dashboardzie.
+Co zmieniono:
+- pole miasta w panelu Podróże działa teraz jako formularz,
+- naciśnięcie Enter pokazuje 3 propozycje noclegów,
+- przycisk "Pokaż 3 propozycje" robi to samo,
+- linki do Booking.com i prompt dla agenta używają zatwierdzonego miasta,
+- dodano drobne style dla przycisku i informacji o aktualnym mieście.
 
-2. `components/AppNav.tsx`
-   - podmień istniejący plik,
-   - dodaje link `Briefingi` do menu,
-   - naprawia polskie znaki w nazwach zakładek.
-
-3. `app/globals.css`
-   - podmień istniejący plik,
-   - dodaje style dla strony briefingów.
-
-4. `app/api/briefings/route.ts`
-   - dodaj nowy plik w tej ścieżce,
-   - endpoint pobiera ostatnie 30 briefingów z Supabase.
-
-5. `app/briefings/page.tsx`
-   - dodaj nowy plik w tej ścieżce,
-   - strona `/briefings` pokazuje listę briefingów, szczegóły, kopiowanie i ręczne generowanie.
-
-## Po wgraniu
-
-1. Poczekaj na deploy w Vercel.
-2. Wejdź na `/briefings`.
-3. Kliknij `Wygeneruj teraz`.
-4. Sprawdź, czy nowy briefing pojawia się na górze listy.
-
-## Sprawdzone lokalnie
-
-`npm run build` zakończony poprawnie.
+Sprawdzenie lokalne:
+- npm run build: OK

@@ -1,56 +1,40 @@
-﻿# DO_GITHUB_L9_W1_MORNING_BRIEFING_20260728
+﻿# DO_GITHUB_L9_W2_CRON_JOB_20260728
 
-To jest paczka plikow do wgrania na GitHub dla Lekcji 9 / W1 Morning Briefing.
+To jest paczka pliku do wgrania na GitHub dla Lekcji 9 / W2 Cron Job.
 
 ## Co wgrac
 
-Wgraj zawartosc tego folderu do glownego katalogu repozytorium `agent`, zachowujac strukture folderow:
+Wgraj plik:
 
-- `app/api/cron/morning/route.ts`
-- `supabase/migrations/202607280001_morning_briefings.sql`
+- `vercel.json`
 
-## Co robi zmiana
+Plik musi znalezc sie w glownym katalogu repozytorium `agent`, obok `package.json`.
 
-Dodaje endpoint:
+## Co dodaje
 
-`GET /api/cron/morning`
+Dodaje konfiguracje Vercel Cron:
 
-Endpoint:
+```json
+"crons": [
+  {
+    "path": "/api/cron/morning",
+    "schedule": "0 7 * * *"
+  }
+]
+```
 
-1. pobiera pogode dla Warszawy,
-2. pobiera kursy EUR i USD,
-3. pobiera aktualna date,
-4. generuje poranny briefing przez Gemini,
-5. zapisuje wynik do tabeli `briefings` w Supabase,
-6. zwraca JSON z `success`, `date` i `preview`.
+To oznacza, ze Vercel codziennie o 7:00 UTC uruchomi endpoint:
 
-## Supabase
+`/api/cron/morning`
 
-W Supabase SQL Editor uruchom plik:
+W Polsce latem jest to 9:00 rano.
 
-`supabase/migrations/202607280001_morning_briefings.sql`
+## Po wgraniu na GitHub
 
-Utworzy tabele `briefings` i polityki RLS.
+1. Vercel zrobi redeploy automatycznie.
+2. Wejdz w Vercel -> projekt `agent` -> Settings -> Cron Jobs.
+3. Powinnas zobaczyc cron dla `/api/cron/morning`.
 
-## Test lokalny
+## Wazne
 
-Po uruchomieniu projektu wejdz w przegladarce:
-
-`http://localhost:3000/api/cron/morning`
-
-## Test produkcyjny po deployu
-
-Po wdrozeniu na Vercel sprawdz:
-
-`https://TWOJA-DOMENA/api/cron/morning`
-
-## Wazne zmienne srodowiskowe
-
-Na Vercel i lokalnie powinny byc ustawione:
-
-- `GOOGLE_GENERATIVE_AI_API_KEY`
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
-
-Nie wklejaj kluczy do kodu ani do GitHuba.
+Endpoint `/api/cron/morning` musi juz istniec w projekcie. Zostal dodany w W1.

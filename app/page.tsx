@@ -46,79 +46,79 @@ type DashboardData = {
 const quickActions = [
   {
     href: "/agent",
-    icon: "AI",
+    icon: "🤖",
     label: "Agent pełna moc",
     description: "Autonomiczny agent z narzędziami, wyszukiwaniem, grafiką i bazą wiedzy.",
   },
   {
     href: "/offer",
-    icon: "OF",
+    icon: "📄",
     label: "Generator oferty AI",
     description: "Nowy scenariusz W4: diagnoza klienta, zakres MVP, wycena i gotowy e-mail.",
   },
   {
     href: "/bariatric",
-    icon: "BC",
+    icon: "🥗",
     label: "BariCare AI",
     description: "Asystent pacjenta przed i po operacji bariatrycznej: pytania, dzienniczek i raport.",
   },
   {
     href: "/wash",
-    icon: "W",
+    icon: "🧼",
     label: "Agent marketingowy myjni",
     description: "Panel dla właściciela: posty, kampanie, e-mail i decyzje sprzedażowe.",
   },
   {
     href: "/wash-booking",
-    icon: "R",
+    icon: "📅",
     label: "Agent rezerwacji myjni",
     description: "Obsługa klienta: dobór usługi, czas, widełki ceny i wolne terminy.",
   },
   {
     href: "/travel",
-    icon: "TR",
+    icon: "🧳",
     label: "Zaplanuj podróż",
     description: "Pogoda, waluty, święta i rekomendacja wyjazdu.",
   },
   {
     href: "/react",
-    icon: "RE",
+    icon: "⚙️",
     label: "Agent ReAct",
     description: "Agent, który używa narzędzi krok po kroku.",
   },
   {
     href: "/chat",
-    icon: "VI",
+    icon: "💬",
     label: "Chat z Vie",
     description: "Główna rozmowa z Twoją personą AI.",
   },
   {
     href: "/think",
-    icon: "TH",
+    icon: "🧠",
     label: "Tryb myślenia",
     description: "Analiza problemu i logiczne rozbijanie zadań.",
   },
   {
     href: "/generate",
-    icon: "GR",
+    icon: "🎨",
     label: "Generator grafik",
     description: "Tworzenie testowych grafik z promptu.",
   },
   {
     href: "/upload",
-    icon: "KB",
+    icon: "📚",
     label: "Baza wiedzy",
     description: "Wklej dokumenty, cenniki i FAQ do Supabase RAG.",
   },
   {
     href: "/knowledge",
-    icon: "PV",
+    icon: "🔎",
     label: "Podgląd wiedzy",
     description: "Sprawdź fragmenty, źródła i testowe wyszukiwanie RAG.",
   },
   {
     href: "/fewshot",
-    icon: "FS",
+    icon: "🧩",
     label: "Słownik AI",
     description: "Przykłady stylu, tonu i gotowych formatów.",
   },
@@ -224,7 +224,7 @@ export default function DashboardPage() {
 
       <aside className={`dashboard-sidebar ${menuOpen ? "open" : ""}`}>
         <div className="dashboard-brand">
-          <span>AI</span>
+          <span aria-hidden="true">🏠</span>
           <div>
             <strong>Mój Agent</strong>
             <small>panel pracy</small>
@@ -264,7 +264,7 @@ export default function DashboardPage() {
         <section className="dashboard-grid" aria-label="Dane operacyjne">
           <article className="dashboard-card dashboard-card-weather">
             <div className="dashboard-card-head">
-              <span>PO</span>
+              <span aria-hidden="true">🌦️</span>
               <div>
                 <h2>Pogoda</h2>
                 <p>Warszawa · odświeżanie co 15 minut</p>
@@ -295,7 +295,7 @@ export default function DashboardPage() {
 
           <article className="dashboard-card dashboard-card-rates">
             <div className="dashboard-card-head">
-              <span>FX</span>
+              <span aria-hidden="true">💱</span>
               <div>
                 <h2>Kursy walut</h2>
                 <p>EUR, USD i GBP · odświeżanie co godzinę</p>
@@ -327,7 +327,7 @@ export default function DashboardPage() {
 
           <article className="dashboard-card dashboard-card-holidays">
             <div className="dashboard-card-head">
-              <span>ŚW</span>
+              <span aria-hidden="true">🗓️</span>
               <div>
                 <h2>Najbliższe święta</h2>
                 <p>Polska · rok 2026</p>
@@ -363,7 +363,7 @@ export default function DashboardPage() {
 
           <article className="dashboard-card dashboard-card-budget">
             <div className="dashboard-card-head">
-              <span>BU</span>
+              <span aria-hidden="true">💼</span>
               <div>
                 <h2>Budżet podróży</h2>
                 <p>Nowa funkcja asystenta podróży</p>
@@ -395,7 +395,7 @@ export default function DashboardPage() {
 
           <article className="dashboard-card dashboard-card-actions">
             <div className="dashboard-card-head">
-              <span>GO</span>
+              <span aria-hidden="true">⚡</span>
               <div>
                 <h2>Szybkie akcje</h2>
                 <p>Przejdź do gotowych modułów agenta</p>

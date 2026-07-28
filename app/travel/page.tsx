@@ -337,6 +337,7 @@ function renderMarkdown(text: string) {
 export default function TravelPage() {
   const [input, setInput] = useState("");
   const [hotelCity, setHotelCity] = useState("Berlin");
+  const [confirmedHotelCity, setConfirmedHotelCity] = useState("Berlin");
   const [budgetPeople, setBudgetPeople] = useState(2);
   const [budgetDays, setBudgetDays] = useState(3);
   const [budgetProfile, setBudgetProfile] = useState<BudgetProfileKey>("standard");
@@ -365,11 +366,11 @@ export default function TravelPage() {
   });
   const isLoading = status === "submitted" || status === "streaming";
   const hotelSuggestions = useMemo(() => {
-    const normalized = normalizeKey(hotelCity);
+    const normalized = normalizeKey(confirmedHotelCity);
     const exact = accommodationSuggestions[normalized];
 
     return exact ?? defaultAccommodationSuggestions;
-  }, [hotelCity]);
+  }, [confirmedHotelCity]);
   const budget = useMemo(() => {
     const profile = budgetProfiles[budgetProfile];
     const safePeople = Math.max(1, budgetPeople || 1);
@@ -411,6 +412,15 @@ export default function TravelPage() {
   function startScenario(scenario: string) {
     clearError();
     setInput(scenario);
+  }
+
+  function confirmHotelCity(event?: React.FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+    const trimmedCity = hotelCity.trim();
+
+    if (!trimmedCity) return;
+
+    setConfirmedHotelCity(trimmedCity);
   }
 
   function resetConversation() {
@@ -558,7 +568,7 @@ export default function TravelPage() {
             </div>
             <a
               className="travel-hotel-main-link"
-              href={bookingSearchUrl(hotelCity)}
+              href={bookingSearchUrl(confirmedHotelCity)}
               rel="noreferrer"
               target="_blank"
             >
@@ -566,15 +576,23 @@ export default function TravelPage() {
             </a>
           </div>
 
-          <label className="travel-hotel-search">
-            Miasto
-            <input
-              onChange={(event) => setHotelCity(event.target.value)}
-              placeholder="Np. Berlin, Paryż, Praga, Kraków"
-              type="text"
-              value={hotelCity}
-            />
-          </label>
+          <form className="travel-hotel-search" onSubmit={confirmHotelCity}>
+            <label>
+              Miasto
+              <input
+                onChange={(event) => setHotelCity(event.target.value)}
+                placeholder="Np. Berlin, Paryż, Praga, Kraków"
+                type="text"
+                value={hotelCity}
+              />
+            </label>
+            <button disabled={!hotelCity.trim()} type="submit">
+              Pokaż 3 propozycje
+            </button>
+            <small>Enter w polu miasta działa tak samo jak przycisk.</small>
+          </form>
+
+          <p className="travel-hotel-current">Propozycje dla miasta: {confirmedHotelCity}</p>
 
           <div className="travel-hotel-grid">
             {hotelSuggestions.map((hotel, index) => (
@@ -586,7 +604,7 @@ export default function TravelPage() {
                 </p>
                 <p>{hotel.bestFor}</p>
                 <small>{hotel.priceLevel}</small>
-                <a href={bookingSearchUrl(hotelCity, hotel.name)} rel="noreferrer" target="_blank">
+                <a href={bookingSearchUrl(confirmedHotelCity, hotel.name)} rel="noreferrer" target="_blank">
                   Sprawdź na Booking.com
                 </a>
               </article>
@@ -597,7 +615,7 @@ export default function TravelPage() {
             className="travel-budget-send"
             onClick={() =>
               setInput(
-                `Zaplanuj podróż do miasta ${hotelCity}. Uwzględnij budżet około ${Math.round(
+                `Zaplanuj podróż do miasta ${confirmedHotelCity}. Uwzględnij budżet około ${Math.round(
                   budget.total,
                 )} PLN i doradź, który typ noclegu wybrać: hotel w centrum, apartament czy tańszy nocleg przy komunikacji. Podaj kryteria sprawdzania noclegu na Booking.com.`,
               )

@@ -2062,6 +2062,11 @@ h1 {
   text-transform: uppercase;
 }
 
+.travel-hotel-search label {
+  display: grid;
+  gap: 7px;
+}
+
 .travel-hotel-search input {
   min-height: 44px;
   border: 1px solid #333348;
@@ -2074,6 +2079,35 @@ h1 {
 
 .travel-hotel-search input:focus {
   border-color: #8bc113;
+}
+
+.travel-hotel-search button {
+  min-height: 44px;
+  width: max-content;
+  border: 0;
+  border-radius: 8px;
+  background: #8bc113;
+  color: #101405;
+  padding: 0 18px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.travel-hotel-search button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.travel-hotel-search small,
+.travel-hotel-current {
+  color: #b9c2d8;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: none;
+}
+
+.travel-hotel-current {
+  margin: 0;
 }
 
 .travel-hotel-grid {

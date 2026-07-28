@@ -1,40 +1,90 @@
-﻿# DO_GITHUB_L9_W2_CRON_JOB_20260728
+﻿# DO_GITHUB_L9_W3_WEBHOOK_20260728
 
-To jest paczka pliku do wgrania na GitHub dla Lekcji 9 / W2 Cron Job.
+To jest paczka plikow do wgrania na GitHub dla Lekcji 9 / W3 Webhook.
 
 ## Co wgrac
 
-Wgraj plik:
+Wgraj zawartosc tego folderu do glownego katalogu repozytorium `agent`, zachowujac strukture folderow:
 
-- `vercel.json`
+- `app/api/webhook/route.ts`
+- `supabase/migrations/202607280002_webhook_events.sql`
 
-Plik musi znalezc sie w glownym katalogu repozytorium `agent`, obok `package.json`.
+## Co robi zmiana
 
-## Co dodaje
+Dodaje endpoint:
 
-Dodaje konfiguracje Vercel Cron:
+`POST /api/webhook`
+
+Endpoint przyjmuje JSON:
 
 ```json
-"crons": [
-  {
-    "path": "/api/cron/morning",
-    "schedule": "0 7 * * *"
+{
+  "type": "feedback",
+  "data": {
+    "customer": "Jan",
+    "rating": 2,
+    "comment": "Dlugi czas oczekiwania na odpowiedz"
   }
-]
+}
 ```
 
-To oznacza, ze Vercel codziennie o 7:00 UTC uruchomi endpoint:
+Obslugiwane typy zdarzen:
 
-`/api/cron/morning`
+- `feedback` - analiza opinii klienta,
+- `alert` - analiza problemu technicznego,
+- `order` - podsumowanie zamowienia.
 
-W Polsce latem jest to 9:00 rano.
+Wynik jest zapisywany w Supabase do tabeli `webhook_events`.
 
-## Po wgraniu na GitHub
+## Supabase
 
-1. Vercel zrobi redeploy automatycznie.
-2. Wejdz w Vercel -> projekt `agent` -> Settings -> Cron Jobs.
-3. Powinnas zobaczyc cron dla `/api/cron/morning`.
+W Supabase SQL Editor uruchom plik:
 
-## Wazne
+`supabase/migrations/202607280002_webhook_events.sql`
 
-Endpoint `/api/cron/morning` musi juz istniec w projekcie. Zostal dodany w W1.
+Utworzy tabele `webhook_events`.
+
+## Test w przegladarce
+
+Po uruchomieniu projektu wejdz na strone aplikacji, otworz DevTools -> Console i wklej:
+
+```js
+fetch('/api/webhook', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    type: 'feedback',
+    data: { customer: 'Jan', rating: 2, comment: 'Dlugi czas oczekiwania na odpowiedz' }
+  })
+}).then(r => r.json()).then(console.log)
+```
+
+Test alertu:
+
+```js
+fetch('/api/webhook', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    type: 'alert',
+    data: { service: 'API', status: 'down', since: '2026-07-13T08:00:00Z' }
+  })
+}).then(r => r.json()).then(console.log)
+```
+
+## Opcjonalne zabezpieczenie
+
+Mozesz dodac zmienna srodowiskowa:
+
+`WEBHOOK_SECRET`
+
+Jesli ja ustawisz, kazde wywolanie webhooka musi miec naglowek:
+
+`x-webhook-secret: TWOJ_SEKRET`
+
+Do testow kursowych nie musisz tego ustawiac.
+
+## Sprawdzone
+
+- TypeScript: OK
+- Build produkcyjny: OK

@@ -1,16 +1,16 @@
-﻿# Poprawka: Enter w propozycjach hoteli
+﻿# Poprawka: waluty w panelu Podróże z NBP
 
-Wgraj do GitHuba dokładnie te pliki z zachowaniem ścieżek:
+Wgraj do GitHuba pliki z zachowaniem ścieżek:
 
 1. app/travel/page.tsx
-2. app/globals.css
+2. app/api/travel/route.ts
+3. app/globals.css
 
 Co zmieniono:
-- pole miasta w panelu Podróże działa teraz jako formularz,
-- naciśnięcie Enter pokazuje 3 propozycje noclegów,
-- przycisk "Pokaż 3 propozycje" robi to samo,
-- linki do Booking.com i prompt dla agenta używają zatwierdzonego miasta,
-- dodano drobne style dla przycisku i informacji o aktualnym mieście.
+- etykieta narzędzia Waluta pokazuje teraz NBP zamiast Frankfurter ECB,
+- endpoint /api/travel pobiera kursy z API Narodowego Banku Polskiego,
+- źródła w odpowiedziach agenta mówią: Open-Meteo, NBP, Nager.Date, Wikipedia,
+- zachowana jest wcześniejsza poprawka: Enter w polu miasta pokazuje 3 propozycje noclegów.
 
 Sprawdzenie lokalne:
 - npm run build: OK

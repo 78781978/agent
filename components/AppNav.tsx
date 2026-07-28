@@ -17,6 +17,7 @@ const menuItems = [
   { href: "/generate", label: "Grafiki" },
   { href: "/email-triage", label: "E-mail Triage" },
   { href: "/report", label: "Raporty" },
+  { href: "/briefings", label: "Briefingi" },
   { href: "/competitor", label: "Konkurencja" },
   { href: "/offer", label: "Oferta AI" },
   { href: "/bariatric", label: "BariCare AI" },

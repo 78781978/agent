@@ -636,7 +636,7 @@ export default function TravelPage() {
             <article>
               <span>💶</span>
               <strong>Waluta</strong>
-              <small>Frankfurter ECB</small>
+              <small>NBP</small>
             </article>
             <article>
               <span>📅</span>

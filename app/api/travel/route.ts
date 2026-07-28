@@ -309,9 +309,8 @@ async function getExchangeRate(currency: string) {
   }
 
   try {
-    const url = new URL("https://api.frankfurter.app/latest");
-    url.searchParams.set("from", currency);
-    url.searchParams.set("to", "PLN");
+    const url = new URL(`https://api.nbp.pl/api/exchangerates/rates/a/${currency}/`);
+    url.searchParams.set("format", "json");
     const response = await fetchWithTimeout(url);
 
     if (!response.ok) {
@@ -319,10 +318,13 @@ async function getExchangeRate(currency: string) {
     }
 
     const data = (await response.json()) as {
-      date?: string;
-      rates?: Record<string, number>;
+      rates?: Array<{
+        effectiveDate?: string;
+        mid?: number;
+      }>;
     };
-    const rate = data.rates?.PLN;
+    const latestRate = data.rates?.[0];
+    const rate = latestRate?.mid;
 
     if (!rate) {
       throw new Error(`Brak kursu ${currency}/PLN`);
@@ -330,8 +332,8 @@ async function getExchangeRate(currency: string) {
 
     return {
       ok: true,
-      source: "Frankfurter ECB",
-      date: data.date,
+      source: "NBP",
+      date: latestRate.effectiveDate,
       currency,
       plnForOneUnit: Number(rate.toFixed(4)),
     };
@@ -549,7 +551,7 @@ function formatPlan(
     "- Przygotuj kartę płatniczą oraz niewielką rezerwę gotówki.",
     "- Sprawdź prognozę ponownie dzień przed wyjazdem.",
     "",
-    "Źródła: Open-Meteo, Frankfurter ECB, Nager.Date, Wikipedia.",
+    "Źródła: Open-Meteo, NBP, Nager.Date, Wikipedia.",
   ].join("\n");
 }
 
@@ -609,7 +611,7 @@ async function buildComparisonPlan(destinations: CityInfo[], budgetPln: number |
     `### ✅ Rekomendacja`,
     `Wybrałabym **${best.city.city}**, bo ma najlepszy łączny wynik pogody, prostoty budżetu i ryzyka świąt. Jeśli zależy Ci na spokojnym zwiedzaniu, sprawdź jeszcze dostępność noclegów i godziny atrakcji.`,
     "",
-    "Źródła: Open-Meteo, Frankfurter ECB, Nager.Date, Wikipedia.",
+    "Źródła: Open-Meteo, NBP, Nager.Date, Wikipedia.",
   ].join("\n");
 }
 
@@ -717,7 +719,7 @@ export async function POST(request: Request) {
       "### ✅ Rekomendacja",
       `Wybrałabym **${best.city.city}**, bo ma najlepszy łączny wynik pogody, prostoty budżetu i ryzyka świąt.`,
       "",
-      "Źródła: Open-Meteo, Frankfurter ECB, Nager.Date, Wikipedia.",
+      "Źródła: Open-Meteo, NBP, Nager.Date, Wikipedia.",
     ].join("\n");
   } else {
     const city = selected[0];

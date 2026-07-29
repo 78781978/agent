@@ -87,7 +87,7 @@ export default function WashBookingPage() {
               Zakres: <strong>{washGoMockData.bookingWindow}</strong>
               <br />
               Najbliższe wolne terminy:{" "}
-              <strong>{washGoMockData.availableSlots.slice(0, 8).join(", ")}</strong>
+              <strong>{washGoMockData.availableSlots.slice(0, 10).join(", ")}</strong>
             </p>
           </div>
         </section>

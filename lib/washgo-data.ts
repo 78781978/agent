@@ -101,35 +101,20 @@ function formatBookingDate(date: Date) {
 }
 
 function generateAvailableSlots() {
-  const now = new Date();
-  const endDate = new Date(now);
-  endDate.setMonth(endDate.getMonth() + 1);
+  const augustSlots = [
+    ["2026-08-01", "08:00"],
+    ["2026-08-03", "10:00"],
+    ["2026-08-04", "12:00"],
+    ["2026-08-05", "14:00"],
+    ["2026-08-06", "16:00"],
+    ["2026-08-07", "08:00"],
+    ["2026-08-08", "10:00"],
+    ["2026-08-10", "12:00"],
+    ["2026-08-11", "14:00"],
+    ["2026-08-12", "16:00"],
+  ];
 
-  const slots: string[] = [];
-  const weekdayHours = ["08:00", "10:00", "12:00", "14:00", "16:00"];
-  const saturdayHours = ["08:00", "10:00", "12:00"];
-  const cursor = new Date(now);
-  cursor.setDate(cursor.getDate() + 1);
-
-  while (cursor <= endDate && slots.length < 18) {
-    const day = cursor.getDay();
-
-    if (day >= 1 && day <= 5) {
-      for (const hour of weekdayHours) {
-        slots.push(`${formatBookingDate(cursor)}, ${hour}`);
-      }
-    }
-
-    if (day === 6) {
-      for (const hour of saturdayHours) {
-        slots.push(`${formatBookingDate(cursor)}, ${hour}`);
-      }
-    }
-
-    cursor.setDate(cursor.getDate() + 1);
-  }
-
-  return slots;
+  return augustSlots.map(([date, hour]) => `${formatBookingDate(new Date(`${date}T12:00:00`))}, ${hour}`);
 }
 
 export const washGoMockData = {

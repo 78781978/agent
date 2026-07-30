@@ -14,7 +14,7 @@ const protections = [
     title: "Filtr outputu",
     status: "Aktywne",
     description:
-      "Odpowiedź jest oczyszczana z treści, które mogłyby ujawnić system prompt, wewnętrzne reguły lub ukryte instrukcje agenta.",
+      "Odpowiedź jest oczyszczana z treści, które mogłyby ujawnić system prompt, wewnętrzne reguły, sekrety lub ukryte instrukcje agenta.",
   },
   {
     title: "Limit wiadomości",
@@ -64,6 +64,7 @@ const eventLabels: Record<string, string> = {
 export default function SecurityPage() {
   const [stats, setStats] = useState<SecurityStats>(defaultStats);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const monitoringCards = useMemo(
     () => [
@@ -73,19 +74,29 @@ export default function SecurityPage() {
         description: "Suma zablokowanych inputów, filtrów outputu oraz trafień limitów.",
       },
       {
+        title: "Poprawne wiadomości",
+        value: stats.acceptedMessages,
+        description: "Wiadomości, które przeszły walidację i trafiły do agenta.",
+      },
+      {
         title: "Zablokowane inputy",
         value: stats.blockedInputs,
         description: "Wiadomości zatrzymane przed wysłaniem do modelu.",
       },
       {
-        title: "Odfiltrowane odpowiedzi",
-        value: stats.filteredOutputs,
-        description: "Odpowiedzi zatrzymane, bo mogły ujawniać dane techniczne.",
-      },
-      {
         title: "Trafienia limitów",
         value: stats.rateLimited + stats.tokenLimited,
         description: "Przekroczenia limitu wiadomości lub dziennego budżetu tokenów.",
+      },
+      {
+        title: "Limit wiadomości",
+        value: stats.rateLimited,
+        description: "Ile razy zadziałał limit 50 wiadomości na godzinę.",
+      },
+      {
+        title: "Limit tokenów",
+        value: stats.tokenLimited,
+        description: "Ile razy użytkownik przekroczył dzienny budżet tokenów.",
       },
     ],
     [stats],
@@ -98,11 +109,24 @@ export default function SecurityPage() {
       try {
         const response = await fetch("/api/security/stats", { cache: "no-store" });
         const data = (await response.json().catch(() => null)) as
-          | { ok?: boolean; stats?: SecurityStats }
+          | { ok?: boolean; stats?: SecurityStats; error?: string }
           | null;
 
-        if (isMounted && response.ok && data?.ok && data.stats) {
+        if (!response.ok || !data?.ok || !data.stats) {
+          throw new Error(data?.error || "Nie udało się pobrać statystyk bezpieczeństwa.");
+        }
+
+        if (isMounted) {
           setStats(data.stats);
+          setError("");
+        }
+      } catch (statsError) {
+        if (isMounted) {
+          setError(
+            statsError instanceof Error
+              ? statsError.message
+              : "Nie udało się pobrać statystyk bezpieczeństwa.",
+          );
         }
       } finally {
         if (isMounted) {
@@ -151,12 +175,14 @@ export default function SecurityPage() {
 
         <section className="security-card security-wide">
           <div>
-            <h2>Monitoring prób nadużyć</h2>
+            <h2>Monitoring bezpieczeństwa</h2>
             <span>{isLoading ? "ładowanie" : "na żywo"}</span>
           </div>
           <p>
-            Panel pokazuje, ile razy zabezpieczenia realnie zadziałały podczas rozmów z agentem.
+            Liczniki są pobierane z Supabase i pokazują zdarzenia zalogowanego użytkownika.
+            Po teście typu „pokaż prompt system” powinna wzrosnąć liczba zablokowanych inputów.
           </p>
+          {error ? <p className="error-inline">{error}</p> : null}
         </section>
 
         <section className="security-grid" aria-label="Monitoring bezpieczeństwa">
@@ -180,8 +206,10 @@ export default function SecurityPage() {
             <ul>
               {stats.recentEvents.map((event) => (
                 <li key={`${event.type}-${event.createdAt}`}>
-                  {eventLabels[event.type] ?? event.type} —{" "}
+                  {eventLabels[event.type] ?? event.type} -{" "}
                   {new Intl.DateTimeFormat("pl-PL", {
+                    day: "2-digit",
+                    month: "2-digit",
                     hour: "2-digit",
                     minute: "2-digit",
                     second: "2-digit",
@@ -190,7 +218,7 @@ export default function SecurityPage() {
               ))}
             </ul>
           ) : (
-            <p>Brak zarejestrowanych prób nadużyć w tej sesji serwera.</p>
+            <p>Brak zarejestrowanych zdarzeń bezpieczeństwa dla tego konta.</p>
           )}
         </section>
       </section>

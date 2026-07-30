@@ -89,11 +89,27 @@ type ToolPart = {
   errorText?: string;
 };
 
+type StoredMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+};
+
 function messageText(message: UIMessage) {
   return message.parts
     .filter((part) => part.type === "text")
     .map((part) => part.text)
     .join("");
+}
+
+async function readJsonResponse(response: Response) {
+  const text = await response.text();
+  if (!text.trim()) return {};
+  try {
+    return JSON.parse(text) as Record<string, any>;
+  } catch {
+    return { error: text };
+  }
 }
 
 function toolName(part: ToolPart) {
@@ -253,8 +269,12 @@ export default function AgentPage() {
   const [downloadedImage, setDownloadedImage] = useState("");
   const [mode, setMode] = useState<ChatMode>("expert");
   const [model, setModel] = useState<ModelChoice>("flash");
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [persistenceError, setPersistenceError] = useState("");
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const startRef = useRef<number | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const conversationIdRef = useRef<string | null>(null);
 
   const transport = useMemo(
     () =>
@@ -284,6 +304,11 @@ export default function AgentPage() {
             [message.id]: (performance.now() - startRef.current!) / 1000,
           }));
         }
+        const activeConversationId = conversationIdRef.current;
+        const content = messageText(message);
+        if (activeConversationId && content) {
+          void saveMessage(activeConversationId, "assistant", content);
+        }
       },
     });
 
@@ -292,6 +317,51 @@ export default function AgentPage() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadHistory() {
+      try {
+        const savedId = localStorage.getItem("vie_agent_conversation_id");
+        if (!savedId) return;
+
+        const response = await fetch(`/api/conversations?id=${encodeURIComponent(savedId)}`);
+        const data = await readJsonResponse(response);
+        if (!response.ok) throw new Error(String(data.error || "Nie udało się wczytać historii agenta."));
+        if (!active) return;
+
+        if (data.conversation) {
+          const loadedMessages = (data.messages ?? []) as StoredMessage[];
+          setConversationId(String(data.conversation.id));
+          conversationIdRef.current = String(data.conversation.id);
+          setMessages(
+            loadedMessages.map((message) => ({
+              id: message.id,
+              role: message.role,
+              parts: [{ type: "text", text: message.content }],
+            })),
+          );
+        }
+      } catch (historyError) {
+        if (active) {
+          setPersistenceError(
+            historyError instanceof Error
+              ? historyError.message
+              : "Nie udało się wczytać historii agenta.",
+          );
+        }
+      } finally {
+        if (active) setHistoryLoading(false);
+      }
+    }
+
+    void loadHistory();
+
+    return () => {
+      active = false;
+    };
+  }, [setMessages]);
 
   useEffect(() => {
     if (!pastedFile) {
@@ -325,7 +395,13 @@ export default function AgentPage() {
 
     startRef.current = performance.now();
     clearError();
+    setPersistenceError("");
     setInput("");
+
+    const activeConversationId = conversationId ?? (await createConversation(trimmed || "Analiza obrazu"));
+    if (trimmed) {
+      await saveMessage(activeConversationId, "user", trimmed);
+    }
 
     if (pastedFile) {
       const dataTransfer = new DataTransfer();
@@ -346,11 +422,46 @@ export default function AgentPage() {
     setInput(scenario);
   }
 
-  function resetConversation() {
+  async function createConversation(title = "Agent AI") {
+    const response = await fetch("/api/conversations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: `Agent AI - ${title}`.slice(0, 50) }),
+    });
+    const data = await readJsonResponse(response);
+    if (!response.ok) throw new Error(String(data.error || "Nie udało się utworzyć rozmowy agenta."));
+
+    const id = String(data.conversation.id);
+    setConversationId(id);
+    conversationIdRef.current = id;
+    localStorage.setItem("vie_agent_conversation_id", id);
+    return id;
+  }
+
+  async function saveMessage(id: string, role: "user" | "assistant", content: string) {
+    try {
+      const response = await fetch("/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversationId: id, role, content }),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok) throw new Error(String(data.error || "Nie udało się zapisać wiadomości."));
+      setPersistenceError("");
+    } catch (saveError) {
+      setPersistenceError(
+        saveError instanceof Error ? saveError.message : "Nie udało się zapisać wiadomości.",
+      );
+    }
+  }
+
+  async function resetConversation() {
     clearError();
     setMessages([]);
     setDurations({});
     setPastedFile(null);
+    setPersistenceError("");
+    await createConversation();
   }
 
   return (
@@ -396,6 +507,12 @@ export default function AgentPage() {
 
           <section className="agent-chat">
             <div className="messages" aria-live="polite">
+              {historyLoading && (
+                <div className="empty-state" role="status">
+                  <p>Wczytuję ostatnią rozmowę Agenta AI...</p>
+                </div>
+              )}
+
               {messages.length === 0 && (
                 <div className="empty-state">
                   <p>
@@ -492,6 +609,15 @@ export default function AgentPage() {
                 <img src={previewUrl} alt="Wklejony screenshot" />
                 <button type="button" onClick={() => setPastedFile(null)}>
                   Usuń screenshot
+                </button>
+              </div>
+            )}
+
+            {persistenceError && (
+              <div className="error-box">
+                <p>Historia agenta: {persistenceError}</p>
+                <button type="button" onClick={() => setPersistenceError("")}>
+                  Zamknij
                 </button>
               </div>
             )}

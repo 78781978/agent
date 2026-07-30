@@ -13,6 +13,7 @@ import {
   filterOutput,
   getLatestUserMessageText,
   outputFilterTransform,
+  recordSecurityEvent,
   sanitizeMessages,
   securityPrompt,
   validateUserInput,
@@ -1964,6 +1965,7 @@ export async function POST(request: Request) {
   const inputValidation = validateUserInput(getLatestUserMessageText(messages));
 
   if (!inputValidation.ok) {
+    recordSecurityEvent("blocked_input");
     return createSecurityResponse(messages, blockedInputMessage);
   }
 
@@ -1977,6 +1979,7 @@ export async function POST(request: Request) {
   const tokenBudget = await assertDailyTokenBudget(user);
 
   if (!tokenBudget.ok) {
+    recordSecurityEvent("token_limited");
     return createSecurityResponse(messages, tokenBudget.message);
   }
 

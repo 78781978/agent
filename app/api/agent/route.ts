@@ -1,6 +1,12 @@
 ﻿import { google } from "@ai-sdk/google";
 import { searchKnowledge } from "../../../lib/knowledge";
 import {
+  assertDailyTokenBudget,
+  estimateMessagesTokens,
+  estimateTextTokens,
+  logApiUsage,
+} from "../../../lib/api-usage";
+import {
   blockedInputMessage,
   checkRateLimit,
   createSecurityResponse,
@@ -1039,6 +1045,7 @@ function createDirectAnswerResponse(
 async function buildGroundedPostAndImage(
   query: string,
   requestContext: string,
+  userId: string,
 ): Promise<{ steps: DirectToolStep[]; answer: string }> {
   const steps: DirectToolStep[] = [];
 
@@ -1059,6 +1066,14 @@ async function buildGroundedPostAndImage(
         `Polecenie użytkownika: ${requestContext}`,
         "Przygotuj konkretną, gotową odpowiedź. Nie pisz, co robisz. Nie pokazuj surowych danych narzędzi.",
       ].join("\n"),
+    });
+
+    await logApiUsage({
+      userId,
+      usage: research.usage,
+      inputEstimate: estimateTextTokens(`${query}\n${requestContext}`),
+      model: "gemini-3.1-flash-lite",
+      endpoint: "/api/agent",
     });
 
     const cleanText = removeToolJsonFromAnswer(research.text);
@@ -1161,7 +1176,7 @@ function buildCompanyClarificationAnswer(
   ].join("\n");
 }
 
-async function buildDirectToolResponse(text: string, messages: UIMessage[]) {
+async function buildDirectToolResponse(text: string, messages: UIMessage[], userId: string) {
   const plan = detectToolPlan(text);
   const businessTask = isBusinessRevenueTask(text);
   const previousUserText = getPreviousUserText(messages);
@@ -1178,7 +1193,7 @@ async function buildDirectToolResponse(text: string, messages: UIMessage[]) {
 
   if (needsFreshResearchBeforeImage(requestContext)) {
     const query = extractSearchQuery(requestContext);
-    const grounded = await buildGroundedPostAndImage(query, requestContext);
+    const grounded = await buildGroundedPostAndImage(query, requestContext, userId);
 
     return createDirectAnswerResponse(messages, grounded.steps, [grounded.answer]);
   }
@@ -1958,8 +1973,15 @@ export async function POST(request: Request) {
   }
 
   const safeMessages = sanitizeMessages(messages);
+  const tokenBudget = await assertDailyTokenBudget(user);
+
+  if (!tokenBudget.ok) {
+    return createSecurityResponse(messages, tokenBudget.message);
+  }
+
+  const inputTokenEstimate = estimateMessagesTokens(safeMessages);
   const latestUserText = getLatestUserText(safeMessages);
-  const directToolResponse = await buildDirectToolResponse(latestUserText, safeMessages);
+  const directToolResponse = await buildDirectToolResponse(latestUserText, safeMessages, user.id);
   const forceGroundingForCurrentRequest = needsFreshResearchBeforeImage(latestUserText);
 
   if (directToolResponse) {
@@ -1971,6 +1993,15 @@ export async function POST(request: Request) {
     system: `${prompts[selectedMode]}${internetRules}${knowledgeRules}${securityPrompt}`,
     messages: await convertToModelMessages(safeMessages),
     stopWhen: stepCountIs(maxSteps),
+    onFinish: async ({ usage }) => {
+      await logApiUsage({
+        userId: user.id,
+        usage,
+        inputEstimate: inputTokenEstimate,
+        model: modelIds[selectedModel],
+        endpoint: "/api/agent",
+      });
+    },
     tools: {
       ...useSearchGrounding(forceGroundingForCurrentRequest),
       searchKnowledge: tool({

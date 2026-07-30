@@ -1,5 +1,11 @@
 import { google } from "@ai-sdk/google";
 import { generateText } from "ai";
+import {
+  assertDailyTokenBudget,
+  estimateTextTokens,
+  logApiUsage,
+} from "../../../lib/api-usage";
+import { getAuthenticatedUser } from "../../../lib/supabase";
 
 type SearchSource = {
   title: string;
@@ -255,7 +261,7 @@ function extractGroundedSources(result: unknown): SearchSource[] {
   ).slice(0, 6);
 }
 
-async function buildGroundedAnswer(query: string) {
+async function buildGroundedAnswer(query: string, userId: string) {
   const result = await generateText({
     model: google("gemini-3.1-flash-lite"),
     tools: {
@@ -277,6 +283,14 @@ async function buildGroundedAnswer(query: string) {
       "3. Jeśli temat jest niejednoznaczny, napisz dokładnie, czego brakuje.",
       "4. Na końcu dodaj sekcję: Źródła.",
     ].join("\n"),
+  });
+
+  await logApiUsage({
+    userId,
+    usage: result.usage,
+    inputEstimate: estimateTextTokens(query),
+    model: "gemini-3.1-flash-lite",
+    endpoint: "/api/search",
   });
 
   return {
@@ -326,6 +340,7 @@ function buildSafeFallback(query: string, error?: unknown) {
 }
 
 export async function POST(request: Request) {
+  const user = await getAuthenticatedUser(request);
   const body = (await request.json().catch(() => null)) as { query?: unknown } | null;
   const query = typeof body?.query === "string" ? body.query.trim() : "";
 
@@ -361,7 +376,13 @@ export async function POST(request: Request) {
     }
 
     try {
-      const grounded = await buildGroundedAnswer(query);
+      const tokenBudget = await assertDailyTokenBudget(user);
+
+      if (!tokenBudget.ok) {
+        return Response.json({ text: tokenBudget.message, sources: [] }, { status: 429 });
+      }
+
+      const grounded = await buildGroundedAnswer(query, user.id);
 
       return Response.json({
         text: grounded.text,

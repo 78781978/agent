@@ -1,4 +1,10 @@
 import { google } from "@ai-sdk/google";
+import {
+  assertDailyTokenBudget,
+  estimateTextTokens,
+  logApiUsage,
+} from "../../../lib/api-usage";
+import { getAuthenticatedUser } from "../../../lib/supabase";
 import { generateText, stepCountIs } from "ai";
 
 export const maxDuration = 60;
@@ -401,6 +407,7 @@ function isTooGeneric(text: string, intent: Intent) {
 }
 
 export async function POST(request: Request) {
+  const user = await getAuthenticatedUser(request);
   const body = (await request.json().catch(() => null)) as BariatricBody | null;
   const stage = typeof body?.stage === "string" ? body.stage.trim() : "";
   const goal = typeof body?.goal === "string" ? body.goal.trim() : "";
@@ -426,6 +433,17 @@ export async function POST(request: Request) {
   }
 
   try {
+    const tokenBudget = await assertDailyTokenBudget(user);
+
+    if (!tokenBudget.ok) {
+      return new Response(tokenBudget.message, {
+        status: 429,
+        headers: {
+          "content-type": "text/plain; charset=utf-8",
+        },
+      });
+    }
+
     const result = await generateText({
       model: google("gemini-3.1-flash-lite"),
       system: `${systemPrompt}\n\n${sourceNotes}\n\n${knowledgeRules}`,
@@ -439,6 +457,14 @@ export async function POST(request: Request) {
         "Przygotuj odpowiedź dopasowaną do tego konkretnego typu zadania. Nie kopiuj ogólnego szablonu. Jeżeli używasz wzoru logicznego, rozwiń go naturalnie, ale nie zmieniaj go w wykład medyczny.",
       ].join("\n"),
       stopWhen: stepCountIs(6),
+    });
+
+    await logApiUsage({
+      userId: user.id,
+      usage: result.usage,
+      inputEstimate: estimateTextTokens(JSON.stringify({ stage, goal, notes, intent })),
+      model: "gemini-3.1-flash-lite",
+      endpoint: "/api/bariatric",
     });
 
     const answer = result.text?.trim() || "";

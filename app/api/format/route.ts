@@ -1,6 +1,13 @@
 ﻿import { google } from "@ai-sdk/google";
 import { convertToModelMessages, generateText, type UIMessage } from "ai";
 
+import {
+  assertDailyTokenBudget,
+  estimateMessagesTokens,
+  logApiUsage,
+} from "../../../lib/api-usage";
+import { getAuthenticatedUser } from "../../../lib/supabase";
+
 export const maxDuration = 30;
 
 const formatPrompt = `
@@ -170,15 +177,29 @@ export async function POST(request: Request) {
   let latestText = "";
 
   try {
+    const user = await getAuthenticatedUser(request);
     const { messages } = (await request.json()) as {
       messages: UIMessage[];
     };
     latestText = getLatestText(messages);
+    const tokenBudget = await assertDailyTokenBudget(user);
+
+    if (!tokenBudget.ok) {
+      return Response.json({ text: tokenBudget.message }, { status: 429 });
+    }
 
     const result = await generateText({
       model: google("gemini-3.1-flash-lite"),
       system: formatPrompt,
       messages: await convertToModelMessages(messages),
+    });
+
+    await logApiUsage({
+      userId: user.id,
+      usage: result.usage,
+      inputEstimate: estimateMessagesTokens(messages),
+      model: "gemini-3.1-flash-lite",
+      endpoint: "/api/format",
     });
 
     return Response.json({ text: result.text });

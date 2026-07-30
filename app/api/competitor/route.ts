@@ -1,4 +1,10 @@
 import { google } from "@ai-sdk/google";
+import {
+  assertDailyTokenBudget,
+  estimateTextTokens,
+  logApiUsage,
+} from "../../../lib/api-usage";
+import { getAuthenticatedUser } from "../../../lib/supabase";
 import { jsonSchema, stepCountIs, streamText, tool } from "ai";
 
 export const maxDuration = 60;
@@ -223,6 +229,7 @@ function localCompetitorFallback(companies: string[], context: string) {
 }
 
 export async function POST(request: Request) {
+  const user = await getAuthenticatedUser(request);
   const body = (await request.json().catch(() => null)) as CompetitorBody | null;
   const companies = normalizeCompanies(body?.companies);
   const context = typeof body?.context === "string" ? body.context.trim() : "";
@@ -232,16 +239,29 @@ export async function POST(request: Request) {
   }
 
   try {
+    const tokenBudget = await assertDailyTokenBudget(user);
+
+    if (!tokenBudget.ok) {
+      return new Response(tokenBudget.message, {
+        status: 429,
+        headers: {
+          "content-type": "text/plain; charset=utf-8",
+        },
+      });
+    }
+
+    const prompt = [
+      `Firmy do porownania: ${companies.join(", ")}`,
+      context ? `Kontekst decyzji: ${context}` : "Kontekst decyzji: nie podano.",
+      `Dzisiejsza data: ${new Date().toLocaleDateString("pl-PL")}`,
+      "",
+      "Wykonaj analize konkurencji zgodnie z formatem. Dla kazdej firmy uzyj dostepnych narzedzi przynajmniej raz, jesli to mozliwe.",
+    ].join("\n");
+
     const result = streamText({
       model: google("gemini-3.1-flash-lite"),
       system: systemPrompt,
-      prompt: [
-        `Firmy do porownania: ${companies.join(", ")}`,
-        context ? `Kontekst decyzji: ${context}` : "Kontekst decyzji: nie podano.",
-        `Dzisiejsza data: ${new Date().toLocaleDateString("pl-PL")}`,
-        "",
-        "Wykonaj analize konkurencji zgodnie z formatem. Dla kazdej firmy uzyj dostepnych narzedzi przynajmniej raz, jesli to mozliwe.",
-      ].join("\n"),
+      prompt,
       tools: {
         ...useSearchGrounding(),
         searchWikipedia: tool({
@@ -271,6 +291,15 @@ export async function POST(request: Request) {
         }),
       },
       stopWhen: stepCountIs(maxSteps),
+      onFinish: async ({ usage }) => {
+        await logApiUsage({
+          userId: user.id,
+          usage,
+          inputEstimate: estimateTextTokens(`${systemPrompt}\n${prompt}`),
+          model: "gemini-3.1-flash-lite",
+          endpoint: "/api/competitor",
+        });
+      },
     });
 
     return result.toTextStreamResponse();

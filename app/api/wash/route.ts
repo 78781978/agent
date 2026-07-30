@@ -1,5 +1,11 @@
 ﻿import { google } from "@ai-sdk/google";
 import { convertToModelMessages, stepCountIs, streamText, type UIMessage } from "ai";
+import {
+  assertDailyTokenBudget,
+  estimateMessagesTokens,
+  logApiUsage,
+} from "../../../lib/api-usage";
+import { getAuthenticatedUser } from "../../../lib/supabase";
 import { formatWashGoKnowledge } from "../../../lib/washgo-data";
 
 export const maxDuration = 30;
@@ -167,15 +173,35 @@ Sprawdź, czy treść nie obiecuje za dużo, nie spamuje i czy wymaga akceptacji
 `;
 
 export async function POST(request: Request) {
+  const user = await getAuthenticatedUser(request);
   const { messages } = (await request.json()) as {
     messages: UIMessage[];
   };
+  const tokenBudget = await assertDailyTokenBudget(user);
+
+  if (!tokenBudget.ok) {
+    return new Response(tokenBudget.message, {
+      status: 429,
+      headers: { "content-type": "text/plain; charset=utf-8" },
+    });
+  }
+
+  const inputTokenEstimate = estimateMessagesTokens(messages);
 
   const result = streamText({
     model: google("gemini-3.1-flash-lite"),
     system: washGoPrompt,
     messages: await convertToModelMessages(messages),
     stopWhen: stepCountIs(maxSteps),
+    onFinish: async ({ usage }) => {
+      await logApiUsage({
+        userId: user.id,
+        usage,
+        inputEstimate: inputTokenEstimate,
+        model: "gemini-3.1-flash-lite",
+        endpoint: "/api/wash",
+      });
+    },
   });
 
   return result.toUIMessageStreamResponse();

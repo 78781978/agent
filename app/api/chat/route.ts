@@ -1,6 +1,11 @@
 ﻿import { google } from "@ai-sdk/google";
 import { searchKnowledge } from "../../../lib/knowledge";
 import {
+  assertDailyTokenBudget,
+  estimateMessagesTokens,
+  logApiUsage,
+} from "../../../lib/api-usage";
+import {
   blockedInputMessage,
   checkRateLimit,
   createSecurityResponse,
@@ -555,6 +560,13 @@ export async function POST(request: Request) {
   }
 
   const safeMessages = sanitizeMessages(messages);
+  const tokenBudget = await assertDailyTokenBudget(user);
+
+  if (!tokenBudget.ok) {
+    return createSecurityResponse(messages, tokenBudget.message);
+  }
+
+  const inputTokenEstimate = estimateMessagesTokens(safeMessages);
 
   const result = streamText({
     model: google(modelIds[selectedModel]),
@@ -572,6 +584,15 @@ ${longTermMemory.slice(0, 6000)}`
     }`,
     messages: await convertToModelMessages(safeMessages),
     stopWhen: stepCountIs(maxSteps),
+    onFinish: async ({ usage }) => {
+      await logApiUsage({
+        userId: user.id,
+        usage,
+        inputEstimate: inputTokenEstimate,
+        model: modelIds[selectedModel],
+        endpoint: "/api/chat",
+      });
+    },
     tools: {
       ...useSearchGrounding(),
       searchKnowledge: tool({

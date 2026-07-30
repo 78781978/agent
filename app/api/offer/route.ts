@@ -1,4 +1,10 @@
 import { google } from "@ai-sdk/google";
+import {
+  assertDailyTokenBudget,
+  estimateTextTokens,
+  logApiUsage,
+} from "../../../lib/api-usage";
+import { getAuthenticatedUser } from "../../../lib/supabase";
 import { generateText, jsonSchema, stepCountIs, tool } from "ai";
 
 export const maxDuration = 60;
@@ -255,6 +261,7 @@ function localOffer(brief: string) {
 }
 
 export async function POST(request: Request) {
+  const user = await getAuthenticatedUser(request);
   const body = (await request.json().catch(() => null)) as OfferBody | null;
   const brief = typeof body?.brief === "string" ? body.brief.trim() : "";
 
@@ -263,6 +270,17 @@ export async function POST(request: Request) {
   }
 
   try {
+    const tokenBudget = await assertDailyTokenBudget(user);
+
+    if (!tokenBudget.ok) {
+      return new Response(tokenBudget.message, {
+        status: 429,
+        headers: {
+          "content-type": "text/plain; charset=utf-8",
+        },
+      });
+    }
+
     const result = await generateText({
       model: google("gemini-3.1-flash-lite"),
       system: systemPrompt,
@@ -313,6 +331,14 @@ export async function POST(request: Request) {
         }),
       },
       stopWhen: stepCountIs(maxSteps),
+    });
+
+    await logApiUsage({
+      userId: user.id,
+      usage: result.usage,
+      inputEstimate: estimateTextTokens(JSON.stringify({ brief })),
+      model: "gemini-3.1-flash-lite",
+      endpoint: "/api/offer",
     });
 
     return new Response(result.text?.trim() || localOffer(brief), {

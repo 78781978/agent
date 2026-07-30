@@ -1,4 +1,10 @@
 import { google } from "@ai-sdk/google";
+import {
+  assertDailyTokenBudget,
+  estimateTextTokens,
+  logApiUsage,
+} from "../../../lib/api-usage";
+import { getAuthenticatedUser } from "../../../lib/supabase";
 import { streamText } from "ai";
 
 export const maxDuration = 30;
@@ -115,6 +121,7 @@ function localTriage(emails: string[]) {
 }
 
 export async function POST(request: Request) {
+  const user = await getAuthenticatedUser(request);
   const body = (await request.json().catch(() => null)) as { emails?: unknown } | null;
   const emails = normalizeEmails(body?.emails);
 
@@ -123,10 +130,31 @@ export async function POST(request: Request) {
   }
 
   try {
+    const tokenBudget = await assertDailyTokenBudget(user);
+
+    if (!tokenBudget.ok) {
+      return new Response(tokenBudget.message, {
+        status: 429,
+        headers: {
+          "content-type": "text/plain; charset=utf-8",
+        },
+      });
+    }
+
+    const prompt = emails.map((email, index) => `MAIL ${index + 1}\n${email}`).join("\n\n---\n\n");
     const result = streamText({
       model: google("gemini-3.1-flash-lite"),
       system: systemPrompt,
-      prompt: emails.map((email, index) => `MAIL ${index + 1}\n${email}`).join("\n\n---\n\n"),
+      prompt,
+      onFinish: async ({ usage }) => {
+        await logApiUsage({
+          userId: user.id,
+          usage,
+          inputEstimate: estimateTextTokens(`${systemPrompt}\n${prompt}`),
+          model: "gemini-3.1-flash-lite",
+          endpoint: "/api/email-triage",
+        });
+      },
     });
 
     return result.toTextStreamResponse();

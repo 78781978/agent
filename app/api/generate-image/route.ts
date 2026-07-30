@@ -1,5 +1,12 @@
 ﻿export const maxDuration = 30;
 
+import {
+  assertDailyTokenBudget,
+  estimateTextTokens,
+  logApiUsage,
+} from "../../../lib/api-usage";
+import { getAuthenticatedUser } from "../../../lib/supabase";
+
 const imageModels = ["gemini-3.1-flash-lite-image"];
 
 type GoogleImagePart = {
@@ -136,6 +143,7 @@ async function generateWithModel(
 }
 
 export async function POST(request: Request) {
+  const user = await getAuthenticatedUser(request);
   const body = (await request.json().catch(() => null)) as {
     prompt?: unknown;
     provider?: unknown;
@@ -153,6 +161,12 @@ export async function POST(request: Request) {
   const timeout = setTimeout(() => controller.abort(), 30000);
 
   try {
+    const tokenBudget = await assertDailyTokenBudget(user);
+
+    if (!tokenBudget.ok) {
+      return Response.json({ error: tokenBudget.message }, { status: 429 });
+    }
+
     const errors: string[] = [];
 
     const apiKey = getApiKey();
@@ -171,6 +185,14 @@ export async function POST(request: Request) {
       const result = await generateWithModel(model, apiKey, prompt, controller.signal);
 
       if (result.ok) {
+        await logApiUsage({
+          userId: user.id,
+          inputEstimate: estimateTextTokens(prompt),
+          outputEstimate: 0,
+          model: result.model,
+          endpoint: "/api/generate-image",
+        });
+
         return Response.json({
           image: result.image,
           text: result.text,

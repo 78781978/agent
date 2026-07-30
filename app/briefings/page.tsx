@@ -7,7 +7,7 @@ type Briefing = {
   id: string;
   created_at: string;
   content: string;
-  date: string;
+  date?: string;
   metadata?: Record<string, unknown>;
 };
 
@@ -161,8 +161,8 @@ function renderMarkdown(text: string) {
 
 function stripMarkdown(text: string) {
   return text
-    .replace(/[#*_>`-]/g, " ")
     .replace(/\[[^\]]+\]\((https?:\/\/[^)]+)\)/g, "$1")
+    .replace(/[#*_>`-]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -202,9 +202,7 @@ export default function BriefingsPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/briefings", {
-        cache: "no-store",
-      });
+      const response = await fetch("/api/briefings", { cache: "no-store" });
       const data = (await response.json().catch(() => null)) as
         | { ok?: boolean; briefings?: Briefing[]; error?: string }
         | null;
@@ -228,9 +226,7 @@ export default function BriefingsPage() {
     setError(null);
 
     try {
-      const response = await fetch("/api/cron/morning", {
-        cache: "no-store",
-      });
+      const response = await fetch("/api/cron/morning", { cache: "no-store" });
       const data = (await response.json().catch(() => null)) as { success?: boolean; error?: string } | null;
 
       if (!response.ok || !data?.success) {
@@ -240,9 +236,7 @@ export default function BriefingsPage() {
       await loadBriefings();
       setSelectedId(null);
     } catch (generateError) {
-      setError(
-        generateError instanceof Error ? generateError.message : "Nie udało się wygenerować briefingu.",
-      );
+      setError(generateError instanceof Error ? generateError.message : "Nie udało się wygenerować briefingu.");
     } finally {
       setIsGenerating(false);
     }
@@ -266,7 +260,7 @@ export default function BriefingsPage() {
 
         <header className="chat-header briefings-header">
           <div>
-            <p className="eyebrow">Lekcja 9 - Warsztat 4</p>
+            <p className="eyebrow">LEKCJA 9 - WARSZTAT 4</p>
             <h1>📰 Briefingi</h1>
             <p className="subtitle">Automatyczne podsumowania dnia od Twojego agenta.</p>
           </div>
@@ -314,7 +308,10 @@ export default function BriefingsPage() {
                   >
                     <span className="briefing-date">{formatBriefingDate(briefing.created_at)}</span>
                     <strong>✅ wygenerowany automatycznie</strong>
-                    <p>{preview}{preview.length >= 150 ? "..." : ""}</p>
+                    <p>
+                      {preview}
+                      {preview.length >= 150 ? "..." : ""}
+                    </p>
                   </button>
                 );
               })}

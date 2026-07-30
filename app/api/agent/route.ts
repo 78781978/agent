@@ -1,5 +1,15 @@
-import { google } from "@ai-sdk/google";
+﻿import { google } from "@ai-sdk/google";
 import { searchKnowledge } from "../../../lib/knowledge";
+import {
+  blockedInputMessage,
+  checkRateLimit,
+  createSecurityResponse,
+  filterOutput,
+  getLatestUserMessageText,
+  sanitizeMessages,
+  securityPrompt,
+  validateUserInput,
+} from "../../../lib/security";
 import { getAuthenticatedUser } from "../../../lib/supabase";
 import {
   convertToModelMessages,
@@ -1016,7 +1026,7 @@ function createDirectAnswerResponse(
       writer.write({
         type: "text-delta",
         id: "direct-answer",
-        delta: answerParts.join("\n\n"),
+        delta: filterOutput(answerParts.join("\n\n")),
       } as never);
       writer.write({ type: "text-end", id: "direct-answer" } as never);
       writer.write({ type: "finish", finishReason: "stop" } as never);
@@ -1935,8 +1945,21 @@ export async function POST(request: Request) {
 
   const selectedMode = getMode(mode);
   const selectedModel = getModel(model);
-  const latestUserText = getLatestUserText(messages);
-  const directToolResponse = await buildDirectToolResponse(latestUserText, messages);
+  const inputValidation = validateUserInput(getLatestUserMessageText(messages));
+
+  if (!inputValidation.ok) {
+    return createSecurityResponse(messages, blockedInputMessage);
+  }
+
+  const rateLimit = checkRateLimit(user.id);
+
+  if (!rateLimit.ok) {
+    return createSecurityResponse(messages, rateLimit.message);
+  }
+
+  const safeMessages = sanitizeMessages(messages);
+  const latestUserText = getLatestUserText(safeMessages);
+  const directToolResponse = await buildDirectToolResponse(latestUserText, safeMessages);
   const forceGroundingForCurrentRequest = needsFreshResearchBeforeImage(latestUserText);
 
   if (directToolResponse) {
@@ -1945,8 +1968,8 @@ export async function POST(request: Request) {
 
   const result = streamText({
     model: google(modelIds[selectedModel]),
-    system: `${prompts[selectedMode]}${internetRules}${knowledgeRules}`,
-    messages: await convertToModelMessages(messages),
+    system: `${prompts[selectedMode]}${internetRules}${knowledgeRules}${securityPrompt}`,
+    messages: await convertToModelMessages(safeMessages),
     stopWhen: stepCountIs(maxSteps),
     tools: {
       ...useSearchGrounding(forceGroundingForCurrentRequest),

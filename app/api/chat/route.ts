@@ -1,5 +1,14 @@
 ﻿import { google } from "@ai-sdk/google";
 import { searchKnowledge } from "../../../lib/knowledge";
+import {
+  blockedInputMessage,
+  checkRateLimit,
+  createSecurityResponse,
+  getLatestUserMessageText,
+  sanitizeMessages,
+  securityPrompt,
+  validateUserInput,
+} from "../../../lib/security";
 import { getAuthenticatedUser, supabaseRequest } from "../../../lib/supabase";
 import {
   convertToModelMessages,
@@ -533,9 +542,23 @@ export async function POST(request: Request) {
     preferences: storedProfile?.preferences || userProfile?.preferences || {},
   };
 
+  const inputValidation = validateUserInput(getLatestUserMessageText(messages));
+
+  if (!inputValidation.ok) {
+    return createSecurityResponse(messages, blockedInputMessage);
+  }
+
+  const rateLimit = checkRateLimit(user.id);
+
+  if (!rateLimit.ok) {
+    return createSecurityResponse(messages, rateLimit.message);
+  }
+
+  const safeMessages = sanitizeMessages(messages);
+
   const result = streamText({
     model: google(modelIds[selectedModel]),
-    system: `${prompts[selectedMode]}${internetRules}${knowledgeRules}\n\n${
+    system: `${prompts[selectedMode]}${internetRules}${knowledgeRules}${securityPrompt}\n\n${
       profileForPrompt.name
         ? `Rozmawiasz z użytkownikiem: ${profileForPrompt.name}. Zwracaj się do niego po imieniu. Jeśli właśnie podał swoje imię, odpowiedz naturalnie: "Miło Cię poznać, ${profileForPrompt.name}! Zapamiętam." Zapamiętane preferencje: ${JSON.stringify(profileForPrompt.preferences ?? {})}.`
         : "Rozmawiasz z użytkownikiem: nieznany. Jeśli to początek rozmowy albo użytkownik nie podał jeszcze imienia, zapytaj grzecznie: jak masz na imię?"
@@ -547,7 +570,7 @@ Masz dostęp do skrótu ostatniej rozmowy z użytkownikiem. Gdy użytkownik pyta
 ${longTermMemory.slice(0, 6000)}`
         : "## PAMIĘĆ OSTATNIEJ ROZMOWY\nBrak zapisanego skrótu ostatniej rozmowy."
     }`,
-    messages: await convertToModelMessages(messages),
+    messages: await convertToModelMessages(safeMessages),
     stopWhen: stepCountIs(maxSteps),
     tools: {
       ...useSearchGrounding(),

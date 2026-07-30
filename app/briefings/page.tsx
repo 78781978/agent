@@ -260,7 +260,7 @@ export default function BriefingsPage() {
 
         <header className="chat-header briefings-header">
           <div>
-            <p className="eyebrow">LEKCJA 9 - WARSZTAT 4</p>
+            <p className="eyebrow">LEKCJA 10 - WARSZTAT 4</p>
             <h1>📰 Briefingi</h1>
             <p className="subtitle">Automatyczne podsumowania dnia od Twojego agenta.</p>
           </div>

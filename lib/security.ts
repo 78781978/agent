@@ -13,11 +13,25 @@ const RATE_LIMIT_MAX_MESSAGES = 50;
 
 const blockedInputPatterns = [
   /ignore previous/i,
-  /system prompt/i,
+  /system\s+prompt/i,
+  /prompt\s+system/i,
+  /system.{0,30}prompt/i,
+  /prompt.{0,30}system/i,
   /ignore instructions/i,
+  /developer\s+message/i,
+  /hidden\s+instructions/i,
+  /internal\s+instructions/i,
   /\breveal\b/i,
   /show me your/i,
   /translate your prompt/i,
+  /ujawn/i,
+  /poka[zż].{0,40}prompt/i,
+  /poka[zż].{0,40}instrukcj/i,
+  /podaj.{0,40}prompt/i,
+  /podaj.{0,40}instrukcj/i,
+  /rozkazuj[eę]/i,
+  /jestem.{0,40}(tw[oó]im|twoim).{0,40}(stw[oó]rc[aą]|admin|w[lł]a[sś]ciciel)/i,
+  /stw[oó]rc[aą].{0,40}(systemu|agenta|modelu)/i,
 ];
 
 const blockedOutputPatterns = [
@@ -48,6 +62,14 @@ type SecurityEvent = {
 };
 
 const securityEvents: SecurityEvent[] = [];
+
+function normalizeForSecurity(text: string) {
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
 
 export function recordSecurityEvent(type: SecurityEventType) {
   securityEvents.unshift({
@@ -112,6 +134,7 @@ export function getLatestUserMessageText(messages: UIMessage[]) {
 
 export function validateUserInput(text: string) {
   const sanitized = sanitizeUserText(text);
+  const normalized = normalizeForSecurity(sanitized);
 
   if (!sanitized) {
     return { ok: true as const, sanitized };
@@ -121,7 +144,10 @@ export function validateUserInput(text: string) {
     return { ok: false as const, reason: "length", sanitized };
   }
 
-  if (blockedInputPatterns.some((pattern) => pattern.test(sanitized))) {
+  if (
+    blockedInputPatterns.some((pattern) => pattern.test(sanitized)) ||
+    blockedInputPatterns.some((pattern) => pattern.test(normalized))
+  ) {
     return { ok: false as const, reason: "blacklist", sanitized };
   }
 

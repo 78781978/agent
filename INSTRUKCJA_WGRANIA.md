@@ -1,71 +1,31 @@
-# Lekcja 10 - W2, W3, W4
+# L10 - panel monitoringu bezpieczenstwa
 
-Ten folder zawiera poprawki do GitHuba dla:
+Wgraj zawartosc tego folderu do glownego katalogu repozytorium GitHub:
 
-- W2_OBRONA: walidacja inputu, filtr outputu, limit 50 wiadomości na godzinę.
-- W3_BUDZET: tabela `api_usage`, liczenie tokenów, limit 10 000 tokenów dziennie.
-- W4_BRIEFINGS_PAGE: strona `/briefings` z listą briefingów od najnowszych.
+`78781978/agent`
 
-## Co wgrać do GitHuba
+## Pliki do podmiany / dodania
 
-Wgraj pliki z tego folderu dokładnie w te same ścieżki w repozytorium:
+- `app/security/page.tsx`
+- `app/api/security/stats/route.ts`
+- `app/api/chat/route.ts`
+- `app/api/agent/route.ts`
+- `lib/security.ts`
 
-```txt
-components/AppNav.tsx
-app/security/page.tsx
-app/briefings/page.tsx
-app/api/briefings/route.ts
-app/api/chat/route.ts
-app/api/agent/route.ts
-app/api/bariatric/route.ts
-app/api/competitor/route.ts
-app/api/email-triage/route.ts
-app/api/fewshot/route.ts
-app/api/format/route.ts
-app/api/generate-image/route.ts
-app/api/offer/route.ts
-app/api/react/route.ts
-app/api/report/route.ts
-app/api/search/route.ts
-app/api/think/route.ts
-app/api/wash/route.ts
-app/api/wash-booking/route.ts
-lib/security.ts
-lib/api-usage.ts
-supabase/migrations/20260730_api_usage_budget.sql
-```
+## Co zostalo dodane
 
-## Co wkleić do Supabase
-
-Plik `SQL_DO_SUPABASE.sql` zawiera ten sam SQL co migracja:
-
-```txt
-supabase/migrations/20260730_api_usage_budget.sql
-```
-
-Jeżeli tabela `api_usage` nie była jeszcze tworzona, wklej zawartość `SQL_DO_SUPABASE.sql` w Supabase:
-
-```txt
-Supabase -> SQL Editor -> New query -> Run
-```
+- licznik prob naduzyc w panelu `/security`,
+- licznik zablokowanych wiadomosci,
+- licznik odfiltrowanych odpowiedzi,
+- licznik trafien limitow,
+- lista ostatnich zdarzen bezpieczenstwa,
+- endpoint `/api/security/stats`.
 
 ## Po wgraniu
 
-Po wgraniu plików do GitHuba zrób redeploy w Vercel albo poczekaj na automatyczny deploy z brancha `main`.
+1. Zrob commit na GitHubie.
+2. Poczekaj na deploy Vercel.
+3. Otworz `/security`.
+4. Przetestuj normalna wiadomosc i probe wymuszenia system promptu.
 
-## Sprawdzone lokalnie
-
-Build lokalny przeszedł poprawnie:
-
-```txt
-npm.cmd run build
-```
-
-Najważniejsze strony po buildzie:
-
-```txt
-/security
-/briefings
-/chat
-/agent
-```
+Build lokalny przeszedl poprawnie po tej zmianie.

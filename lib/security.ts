@@ -35,6 +35,47 @@ const blockedOutputPatterns = [
 
 const messageLogs = new Map<string, number[]>();
 
+type SecurityEventType =
+  | "accepted_message"
+  | "blocked_input"
+  | "filtered_output"
+  | "rate_limited"
+  | "token_limited";
+
+type SecurityEvent = {
+  type: SecurityEventType;
+  createdAt: string;
+};
+
+const securityEvents: SecurityEvent[] = [];
+
+export function recordSecurityEvent(type: SecurityEventType) {
+  securityEvents.unshift({
+    type,
+    createdAt: new Date().toISOString(),
+  });
+
+  if (securityEvents.length > 200) {
+    securityEvents.length = 200;
+  }
+}
+
+export function getSecurityStats() {
+  const count = (type: SecurityEventType) =>
+    securityEvents.filter((event) => event.type === type).length;
+
+  return {
+    acceptedMessages: count("accepted_message"),
+    blockedInputs: count("blocked_input"),
+    filteredOutputs: count("filtered_output"),
+    rateLimited: count("rate_limited"),
+    tokenLimited: count("token_limited"),
+    abuseAttempts:
+      count("blocked_input") + count("filtered_output") + count("rate_limited") + count("token_limited"),
+    recentEvents: securityEvents.slice(0, 8),
+  };
+}
+
 export const blockedInputMessage =
   "Ta wiadomość została zablokowana z powodów bezpieczeństwa.";
 
@@ -104,6 +145,7 @@ export function sanitizeMessages(messages: UIMessage[]) {
 
 export function filterOutput(text: string) {
   if (blockedOutputPatterns.some((pattern) => pattern.test(text))) {
+    recordSecurityEvent("filtered_output");
     return blockedOutputMessage;
   }
 
@@ -163,6 +205,7 @@ export function checkRateLimit(userId: string, now = Date.now()) {
     const retryAfterMinutes = Math.max(1, Math.ceil(retryAfterMs / 60000));
 
     messageLogs.set(userId, timestamps);
+    recordSecurityEvent("rate_limited");
 
     return {
       ok: false as const,
@@ -173,6 +216,7 @@ export function checkRateLimit(userId: string, now = Date.now()) {
 
   timestamps.push(now);
   messageLogs.set(userId, timestamps);
+  recordSecurityEvent("accepted_message");
 
   return { ok: true as const };
 }

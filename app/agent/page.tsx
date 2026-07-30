@@ -15,6 +15,55 @@ const tools = [
   { name: "Analiza obrazów", emoji: "IMG", key: "vision" },
 ];
 
+type ChatMode = "casual" | "expert" | "creative";
+type ModelChoice = "flash" | "pro";
+
+const modes: Array<{
+  id: ChatMode;
+  label: string;
+  icon: string;
+  description: string;
+}> = [
+  {
+    id: "casual",
+    label: "Casual",
+    icon: "💬",
+    description: "krótko, prosto i po ludzku",
+  },
+  {
+    id: "expert",
+    label: "Ekspert",
+    icon: "🎓",
+    description: "analitycznie, formalnie i z rekomendacją",
+  },
+  {
+    id: "creative",
+    label: "Kreatywny",
+    icon: "🎨",
+    description: "nieszablonowo, z analogiami i inspiracją",
+  },
+];
+
+const models: Array<{
+  id: ModelChoice;
+  label: string;
+  icon: string;
+  description: string;
+}> = [
+  {
+    id: "flash",
+    label: "Flash",
+    icon: "⚡",
+    description: "szybki model do codziennych pytań",
+  },
+  {
+    id: "pro",
+    label: "Pro",
+    icon: "🧠",
+    description: "zaawansowany model do złożonych analiz",
+  },
+];
+
 const scenarios = [
   "Znajdź w Google co robi firma Syntelligence i wygeneruj dla nich logo",
   "Przeczytaj stronę apple.com i opisz ich aktualną ofertę iPhone",
@@ -202,6 +251,8 @@ export default function AgentPage() {
   const [previewUrl, setPreviewUrl] = useState("");
   const [durations, setDurations] = useState<Record<string, number>>({});
   const [downloadedImage, setDownloadedImage] = useState("");
+  const [mode, setMode] = useState<ChatMode>("expert");
+  const [model, setModel] = useState<ModelChoice>("flash");
   const startRef = useRef<number | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
@@ -214,13 +265,13 @@ export default function AgentPage() {
             body: {
               ...body,
               messages,
-              mode: "expert",
-              model: "flash",
+              mode,
+              model,
             },
           };
         },
       }),
-    [],
+    [mode, model],
   );
 
   const { messages, sendMessage, status, stop, error, clearError, setMessages } =
@@ -410,7 +461,8 @@ export default function AgentPage() {
                       <div className="tool-counter">
                         Użyto {toolParts.length} narzędzi
                         {duration ? ` | ${duration.toFixed(1)}s` : ""}
-                        {" | Model: gemini-3.1-flash-lite"}
+                        {` | Tryb: ${modes.find((item) => item.id === mode)?.label ?? mode}`}
+                        {` | Model: ${models.find((item) => item.id === model)?.label ?? model}`}
                       </div>
                     )}
                   </article>
@@ -443,6 +495,37 @@ export default function AgentPage() {
                 </button>
               </div>
             )}
+
+            <section className="mode-switcher" aria-label="Tryb rozmowy">
+              {modes.map((item) => (
+                <button
+                  className={item.id === mode ? "active" : ""}
+                  key={item.id}
+                  type="button"
+                  onClick={() => setMode(item.id)}
+                  title={item.description}
+                >
+                  <span>{item.icon}</span>
+                  {item.label}
+                </button>
+              ))}
+            </section>
+
+            <section className="model-switcher" aria-label="Model AI">
+              {models.map((item) => (
+                <button
+                  className={item.id === model ? "active" : ""}
+                  key={item.id}
+                  type="button"
+                  onClick={() => setModel(item.id)}
+                  title={item.description}
+                >
+                  <span>{item.icon}</span>
+                  {item.label}
+                  <small>{item.description}</small>
+                </button>
+              ))}
+            </section>
 
             <form className="composer" onSubmit={handleSubmit}>
               <textarea

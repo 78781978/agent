@@ -10,6 +10,8 @@ import {
   checkRateLimit,
   createSecurityResponse,
   getLatestUserMessageText,
+  outputFilterTransform,
+  recordSecurityEvent,
   sanitizeMessages,
   securityPrompt,
   validateUserInput,
@@ -550,6 +552,7 @@ export async function POST(request: Request) {
   const inputValidation = validateUserInput(getLatestUserMessageText(messages));
 
   if (!inputValidation.ok) {
+    recordSecurityEvent("blocked_input");
     return createSecurityResponse(messages, blockedInputMessage);
   }
 
@@ -563,6 +566,7 @@ export async function POST(request: Request) {
   const tokenBudget = await assertDailyTokenBudget(user);
 
   if (!tokenBudget.ok) {
+    recordSecurityEvent("token_limited");
     return createSecurityResponse(messages, tokenBudget.message);
   }
 
@@ -570,6 +574,7 @@ export async function POST(request: Request) {
 
   const result = streamText({
     model: google(modelIds[selectedModel]),
+    experimental_transform: outputFilterTransform(),
     system: `${prompts[selectedMode]}${internetRules}${knowledgeRules}${securityPrompt}\n\n${
       profileForPrompt.name
         ? `Rozmawiasz z użytkownikiem: ${profileForPrompt.name}. Zwracaj się do niego po imieniu. Jeśli właśnie podał swoje imię, odpowiedz naturalnie: "Miło Cię poznać, ${profileForPrompt.name}! Zapamiętam." Zapamiętane preferencje: ${JSON.stringify(profileForPrompt.preferences ?? {})}.`

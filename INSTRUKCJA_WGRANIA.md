@@ -1,16 +1,31 @@
-﻿# DO GITHUB - Zakladka Bezpieczenstwo
+# L10 - panel monitoringu bezpieczenstwa
 
-Wgraj pliki do repozytorium dokladnie w te sciezki:
+Wgraj zawartosc tego folderu do glownego katalogu repozytorium GitHub:
 
-- components/AppNav.tsx
-- app/globals.css
-- app/security/page.tsx
+`78781978/agent`
 
-Co zmieniono:
-- dodano zakladke Bezpieczenstwo do glownego menu,
-- dodano strone /security,
-- poprawiono polskie znaki w etykietach menu,
-- dodano karty pokazujace: walidacje inputu, filtr outputu, limit 50 wiadomosci/h i budzet 10k tokenow/dzien.
+## Pliki do podmiany / dodania
 
-Sprawdzone:
-- npm run build przeszedl poprawnie.
+- `app/security/page.tsx`
+- `app/api/security/stats/route.ts`
+- `app/api/chat/route.ts`
+- `app/api/agent/route.ts`
+- `lib/security.ts`
+
+## Co zostalo dodane
+
+- licznik prob naduzyc w panelu `/security`,
+- licznik zablokowanych wiadomosci,
+- licznik odfiltrowanych odpowiedzi,
+- licznik trafien limitow,
+- lista ostatnich zdarzen bezpieczenstwa,
+- endpoint `/api/security/stats`.
+
+## Po wgraniu
+
+1. Zrob commit na GitHubie.
+2. Poczekaj na deploy Vercel.
+3. Otworz `/security`.
+4. Przetestuj normalna wiadomosc i probe wymuszenia system promptu.
+
+Build lokalny przeszedl poprawnie po tej zmianie.

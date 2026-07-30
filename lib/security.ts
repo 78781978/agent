@@ -30,7 +30,7 @@ const blockedInputPatterns = [
   /podaj.{0,40}prompt/i,
   /podaj.{0,40}instrukcj/i,
   /rozkazuj[eę]/i,
-  /jestem.{0,40}(tw[oó]im|twoim).{0,40}(stw[oó]rc[aą]|admin|w[lł]a[sś]ciciel)/i,
+  /jestem.{0,40}(twoim|tw[oó]im).{0,40}(stw[oó]rc[aą]|admin|w[lł]a[sś]ciciel)/i,
   /stw[oó]rc[aą].{0,40}(systemu|agenta|modelu)/i,
 ];
 
@@ -49,14 +49,14 @@ const blockedOutputPatterns = [
 
 const messageLogs = new Map<string, number[]>();
 
-type SecurityEventType =
+export type SecurityEventType =
   | "accepted_message"
   | "blocked_input"
   | "filtered_output"
   | "rate_limited"
   | "token_limited";
 
-type SecurityEvent = {
+export type SecurityEvent = {
   type: SecurityEventType;
   createdAt: string;
 };
@@ -82,9 +82,9 @@ export function recordSecurityEvent(type: SecurityEventType) {
   }
 }
 
-export function getSecurityStats() {
+export function getSecurityStats(events = securityEvents) {
   const count = (type: SecurityEventType) =>
-    securityEvents.filter((event) => event.type === type).length;
+    events.filter((event) => event.type === type).length;
 
   return {
     acceptedMessages: count("accepted_message"),
@@ -94,7 +94,7 @@ export function getSecurityStats() {
     tokenLimited: count("token_limited"),
     abuseAttempts:
       count("blocked_input") + count("filtered_output") + count("rate_limited") + count("token_limited"),
-    recentEvents: securityEvents.slice(0, 8),
+    recentEvents: events.slice(0, 8),
   };
 }
 
@@ -169,16 +169,19 @@ export function sanitizeMessages(messages: UIMessage[]) {
   });
 }
 
-export function filterOutput(text: string) {
+export function filterOutput(text: string, onFiltered?: () => void | Promise<void>) {
   if (blockedOutputPatterns.some((pattern) => pattern.test(text))) {
     recordSecurityEvent("filtered_output");
+    void onFiltered?.();
     return blockedOutputMessage;
   }
 
   return text;
 }
 
-export function outputFilterTransform<TOOLS extends ToolSet>(): StreamTextTransform<TOOLS> {
+export function outputFilterTransform<TOOLS extends ToolSet>(
+  onFiltered?: () => void | Promise<void>,
+): StreamTextTransform<TOOLS> {
   return () => {
     let activeTextId: string | null = null;
     let bufferedText = "";
@@ -198,7 +201,7 @@ export function outputFilterTransform<TOOLS extends ToolSet>(): StreamTextTransf
         }
 
         if (chunk.type === "text-end" && chunk.id === activeTextId) {
-          const safeText = filterOutput(bufferedText);
+          const safeText = filterOutput(bufferedText, onFiltered);
 
           if (safeText) {
             controller.enqueue({
@@ -231,7 +234,6 @@ export function checkRateLimit(userId: string, now = Date.now()) {
     const retryAfterMinutes = Math.max(1, Math.ceil(retryAfterMs / 60000));
 
     messageLogs.set(userId, timestamps);
-    recordSecurityEvent("rate_limited");
 
     return {
       ok: false as const,
@@ -242,7 +244,6 @@ export function checkRateLimit(userId: string, now = Date.now()) {
 
   timestamps.push(now);
   messageLogs.set(userId, timestamps);
-  recordSecurityEvent("accepted_message");
 
   return { ok: true as const };
 }

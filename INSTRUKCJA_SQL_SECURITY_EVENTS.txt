@@ -1,0 +1,15 @@
+INSTRUKCJA - tabela security_events
+
+1. Wejdz do Supabase.
+2. Otworz SQL Editor.
+3. Wklej i uruchom kod z pliku:
+   supabase/migrations/20260731_security_events.sql
+
+Po co to jest:
+- panel /security pokazuje realne liczniki zabezpieczen,
+- agent zapisuje proby naduzyc, blokady inputu, trafienia limitow i filtrowanie outputu,
+- kazdy zalogowany user widzi tylko swoje dane dzieki RLS.
+
+Wazne:
+- nie wklejaj tutaj zadnych kluczy API,
+- po wgraniu plikow na GitHub zrob redeploy w Vercel.

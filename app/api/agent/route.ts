@@ -13,11 +13,11 @@ import {
   filterOutput,
   getLatestUserMessageText,
   outputFilterTransform,
-  recordSecurityEvent,
   sanitizeMessages,
   securityPrompt,
   validateUserInput,
 } from "../../../lib/security";
+import { recordUserSecurityEvent } from "../../../lib/security-events";
 import { getAuthenticatedUser } from "../../../lib/supabase";
 import {
   convertToModelMessages,
@@ -1010,6 +1010,7 @@ function createDirectAnswerResponse(
   messages: UIMessage[],
   steps: DirectToolStep[],
   answerParts: string[],
+  onFiltered?: () => void | Promise<void>,
 ) {
   const stream = createUIMessageStream({
     originalMessages: messages,
@@ -1034,7 +1035,7 @@ function createDirectAnswerResponse(
       writer.write({
         type: "text-delta",
         id: "direct-answer",
-        delta: filterOutput(answerParts.join("\n\n")),
+        delta: filterOutput(answerParts.join("\n\n"), onFiltered),
       } as never);
       writer.write({ type: "text-end", id: "direct-answer" } as never);
       writer.write({ type: "finish", finishReason: "stop" } as never);
@@ -1197,7 +1198,9 @@ async function buildDirectToolResponse(text: string, messages: UIMessage[], user
     const query = extractSearchQuery(requestContext);
     const grounded = await buildGroundedPostAndImage(query, requestContext, userId);
 
-    return createDirectAnswerResponse(messages, grounded.steps, [grounded.answer]);
+    return createDirectAnswerResponse(messages, grounded.steps, [grounded.answer], () =>
+      recordUserSecurityEvent(userId, "filtered_output"),
+    );
   }
 
   if (plan.length === 0) {
@@ -1965,21 +1968,24 @@ export async function POST(request: Request) {
   const inputValidation = validateUserInput(getLatestUserMessageText(messages));
 
   if (!inputValidation.ok) {
-    recordSecurityEvent("blocked_input");
+    await recordUserSecurityEvent(user.id, "blocked_input");
     return createSecurityResponse(messages, blockedInputMessage);
   }
 
   const rateLimit = checkRateLimit(user.id);
 
   if (!rateLimit.ok) {
+    await recordUserSecurityEvent(user.id, "rate_limited");
     return createSecurityResponse(messages, rateLimit.message);
   }
+
+  await recordUserSecurityEvent(user.id, "accepted_message");
 
   const safeMessages = sanitizeMessages(messages);
   const tokenBudget = await assertDailyTokenBudget(user);
 
   if (!tokenBudget.ok) {
-    recordSecurityEvent("token_limited");
+    await recordUserSecurityEvent(user.id, "token_limited");
     return createSecurityResponse(messages, tokenBudget.message);
   }
 
@@ -1994,7 +2000,9 @@ export async function POST(request: Request) {
 
   const result = streamText({
     model: google(modelIds[selectedModel]),
-    experimental_transform: outputFilterTransform(),
+    experimental_transform: outputFilterTransform(() =>
+      recordUserSecurityEvent(user.id, "filtered_output"),
+    ),
     system: `${prompts[selectedMode]}${internetRules}${knowledgeRules}${securityPrompt}`,
     messages: await convertToModelMessages(safeMessages),
     stopWhen: stepCountIs(maxSteps),

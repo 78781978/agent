@@ -107,6 +107,68 @@ button {
   gap: 16px;
 }
 
+.security-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.security-card {
+  border: 1px solid #252538;
+  border-radius: 8px;
+  padding: 18px;
+  background: #11111a;
+}
+
+.security-card > div {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.security-card h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.security-card span {
+  border: 1px solid #8bc113;
+  border-radius: 999px;
+  padding: 5px 9px;
+  color: #dff5c8;
+  background: #14200e;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.security-card p {
+  margin: 0;
+  color: #b9bbc8;
+  line-height: 1.55;
+}
+
+.security-wide ul {
+  margin: 0;
+  padding-left: 18px;
+  color: #cfd2df;
+  line-height: 1.8;
+}
+
+@media (max-width: 760px) {
+  .hero-card,
+  .security-card > div {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .security-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .knowledge-form,
 .knowledge-list {
   border: 1px solid #252538;
@@ -296,6 +358,24 @@ button {
   border: 1px solid #252538;
   border-radius: 8px;
   background: #11111a;
+}
+
+.hero-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid #252538;
+  border-radius: 8px;
+  background: #11111a;
+}
+
+.hero-card p:not(.eyebrow) {
+  max-width: 720px;
+  margin: 0;
+  color: #a8a8b5;
+  line-height: 1.55;
 }
 
 .header-pills {

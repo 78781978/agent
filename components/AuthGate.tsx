@@ -11,14 +11,15 @@ type AuthGateProps = {
 export function AuthGate({ children }: AuthGateProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [checking, setChecking] = useState(pathname !== "/login");
+  const isPublicPage = pathname === "/" || pathname === "/login";
+  const [checking, setChecking] = useState(!isPublicPage);
   const [user, setUser] = useState<AuthUser | null>(null);
 
   useEffect(() => {
     let active = true;
 
     async function checkUser() {
-      if (pathname === "/login") {
+      if (isPublicPage) {
         setChecking(false);
         return;
       }
@@ -41,9 +42,9 @@ export function AuthGate({ children }: AuthGateProps) {
     return () => {
       active = false;
     };
-  }, [pathname, router]);
+  }, [isPublicPage, pathname, router]);
 
-  if (pathname !== "/login" && checking) {
+  if (!isPublicPage && checking) {
     return (
       <main className="chat-shell">
         <section className="chat-card">
@@ -53,7 +54,7 @@ export function AuthGate({ children }: AuthGateProps) {
     );
   }
 
-  if (pathname !== "/login" && !user) {
+  if (!isPublicPage && !user) {
     return null;
   }
 

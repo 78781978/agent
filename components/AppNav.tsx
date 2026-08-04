@@ -6,6 +6,7 @@ import { signOut } from "../lib/auth-client";
 
 const menuItems = [
   { href: "/", label: "Dashboard" },
+  { href: "/admin/dashboard", label: "Statystyki użycia" },
   { href: "/chat", label: "Chat Vie" },
   { href: "/agent", label: "Agent" },
   { href: "/react", label: "ReAct" },

@@ -3386,6 +3386,42 @@ body > * {
   background-image: linear-gradient(rgba(242,246,250,.66), rgba(238,243,248,.76)), url("/cosmic-background.png");
 }
 
+/* Czytelne zielone akcenty na jasnym tle */
+[data-theme="light"] .landing-shell {
+  --landing-accent: #426600;
+}
+
+[data-theme="light"] :is(
+  .eyebrow,
+  .dashboard-eyebrow,
+  .usage-eyebrow,
+  .memory-toggle span,
+  .copied,
+  .tools-panel strong,
+  .travel-hotel-grid span,
+  .travel-data-card span,
+  .usage-table-panel header a,
+  .usage-user-avatar,
+  .ai-message small
+) {
+  color: #365900;
+}
+
+[data-theme="light"] :is(
+  .usage-header > button,
+  .usage-error button,
+  .usage-sidebar nav a:hover,
+  .usage-sidebar nav a.active
+) {
+  color: #294900;
+}
+
+[data-theme="light"] .usage-metric.lime { color: #416700; }
+[data-theme="light"] .usage-metric.cyan { color: #006c61; }
+[data-theme="light"] .usage-metric.blue { color: #245fae; }
+[data-theme="light"] .usage-metric.violet { color: #7540a4; }
+[data-theme="light"] .landing-app-window > header > b { color: #355900; }
+
 .agent-nav-logo {
   display: flex !important;
   align-items: center;

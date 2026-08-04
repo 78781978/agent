@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signOut } from "../lib/auth-client";
+import { ThemeToggle } from "./ThemeToggle";
 
 const menuItems = [
   { href: "/", label: "Dashboard" },
@@ -44,6 +45,7 @@ export function AppNav({ active }: AppNavProps) {
 
   return (
     <nav className="top-nav agent-main-nav" aria-label="Nawigacja">
+      <ThemeToggle />
       <button className="nav-sign-out nav-sign-out-top" type="button" onClick={handleSignOut}>
         Wyloguj
       </button>

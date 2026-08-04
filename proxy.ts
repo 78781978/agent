@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 const publicPaths = ["/", "/login"];
+const publicAssetPattern = /\.(?:png|jpe?g|webp|gif|svg|ico|json)$/i;
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -9,7 +10,7 @@ export function proxy(request: NextRequest) {
     publicPaths.some((path) => pathname === path || pathname.startsWith(`${path}/`)) ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api") ||
-    pathname === "/favicon.ico"
+    publicAssetPattern.test(pathname)
   ) {
     return NextResponse.next();
   }

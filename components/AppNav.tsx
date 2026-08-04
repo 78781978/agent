@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { signOut } from "../lib/auth-client";
 import { ThemeToggle } from "./ThemeToggle";
@@ -45,6 +46,10 @@ export function AppNav({ active }: AppNavProps) {
 
   return (
     <nav className="top-nav agent-main-nav" aria-label="Nawigacja">
+      <Link className="agent-nav-logo" href="/" aria-label="Vie AI — strona główna">
+        <Image src="/vie-logo.png" alt="" width={72} height={72} priority />
+        <span><strong>VIE</strong><small>AI AGENT</small></span>
+      </Link>
       <ThemeToggle />
       <button className="nav-sign-out nav-sign-out-top" type="button" onClick={handleSignOut}>
         Wyloguj

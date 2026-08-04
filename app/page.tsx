@@ -4,6 +4,7 @@ import Link from "next/link";
 import { AppNav } from "../components/AppNav";
 import { useEffect, useMemo, useState } from "react";
 import { getCurrentUser, type AuthUser } from "../lib/auth-client";
+import { ThemeToggle } from "../components/ThemeToggle";
 
 type ToolResult<T> = {
   ok: boolean;
@@ -177,7 +178,7 @@ function LandingPage() {
       <div className="landing-orb landing-orb-two" aria-hidden="true" />
       <nav className="landing-nav" aria-label="Nawigacja strony głównej">
         <Link className="landing-brand" href="/" aria-label="Vie AI — strona główna"><span>V</span><strong>Vie AI</strong></Link>
-        <Link className="landing-nav-link" href="/login">Zaloguj się</Link>
+        <div className="landing-nav-actions"><ThemeToggle compact /><Link className="landing-nav-link" href="/login">Zaloguj się</Link></div>
       </nav>
 
       <section className="landing-hero">

@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { AppNav } from "../components/AppNav";
 import { useEffect, useMemo, useState } from "react";
 import { getCurrentUser, type AuthUser } from "../lib/auth-client";
@@ -177,12 +178,15 @@ function LandingPage() {
       <div className="landing-orb landing-orb-one" aria-hidden="true" />
       <div className="landing-orb landing-orb-two" aria-hidden="true" />
       <nav className="landing-nav" aria-label="Nawigacja strony głównej">
-        <Link className="landing-brand" href="/" aria-label="Vie AI — strona główna"><span>V</span><strong>Vie AI</strong></Link>
+        <Link className="landing-brand" href="/" aria-label="Vie AI — strona główna"><Image className="landing-brand-logo" src="/vie-logo.png" alt="" width={52} height={52} priority /><strong>Vie AI</strong></Link>
         <div className="landing-nav-actions"><ThemeToggle compact /><Link className="landing-nav-link" href="/login">Zaloguj się</Link></div>
       </nav>
 
       <section className="landing-hero">
         <div className="landing-hero-copy">
+          <div className="landing-official-logo">
+            <Image src="/vie-logo.png" alt="Logo Vie AI Agent" width={190} height={190} priority />
+          </div>
           <p className="landing-kicker"><span /> Twój inteligentny copilot</p>
           <h1>Agent AI, który zna <em>Twój biznes.</em></h1>
           <p className="landing-lead">Vie łączy rozmowy, firmową wiedzę i automatyzacje w jednym bezpiecznym miejscu — żeby szybciej zamieniać pytania w decyzje.</p>
@@ -244,7 +248,7 @@ function LandingPage() {
         <Link className="landing-primary" href="/login">Stwórz konto <b>→</b></Link>
       </section>
 
-      <footer className="landing-footer"><Link className="landing-brand" href="/"><span>V</span><strong>Vie AI</strong></Link><p>Twój biznes. Twoja wiedza. Twój agent.</p><small>© 2026 Vie AI</small></footer>
+      <footer className="landing-footer"><Link className="landing-brand" href="/"><Image className="landing-brand-logo" src="/vie-logo.png" alt="" width={52} height={52} /><strong>Vie AI</strong></Link><p>Twój biznes. Twoja wiedza. Twój agent.</p><small>© 2026 Vie AI</small></footer>
     </main>
   );
 }

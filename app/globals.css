@@ -2486,6 +2486,16 @@ h1 {
   color: #ffffff;
 }
 
+.dashboard-brand-logo {
+  width: 78px;
+  height: 78px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(205, 255, 56, .35);
+  border-radius: 14px;
+  object-fit: cover;
+  box-shadow: 0 0 28px rgba(167, 226, 46, .2);
+}
+
 .dashboard-sidebar .nav-sign-out {
   width: 100%;
   min-height: 42px;
@@ -3320,11 +3330,32 @@ h1 {
 /* Globalne kosmiczne tło Vie AI */
 html, body {
   min-height: 100%;
+}
+
+html {
+  background: #03050c;
+}
+
+body {
+  position: relative;
+  background: transparent !important;
+}
+
+body::before {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
   background-color: #03050c;
-  background-image: linear-gradient(rgba(2, 5, 12, .7), rgba(3, 5, 13, .82)), url("/cosmic-background.png");
+  background-image: linear-gradient(rgba(2, 5, 12, .52), rgba(3, 5, 13, .7)), url("/cosmic-background.png");
   background-position: center;
   background-size: cover;
-  background-attachment: fixed;
+  content: "";
+  pointer-events: none;
+}
+
+body > * {
+  position: relative;
+  z-index: 1;
 }
 
 .landing-shell,
@@ -3348,7 +3379,26 @@ html, body {
 }
 
 [data-theme="light"] body {
-  background-image: linear-gradient(rgba(242,246,250,.72), rgba(238,243,248,.82)), url("/cosmic-background.png");
+  background: transparent !important;
 }
+
+[data-theme="light"] body::before {
+  background-image: linear-gradient(rgba(242,246,250,.66), rgba(238,243,248,.76)), url("/cosmic-background.png");
+}
+
+.agent-nav-logo {
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding: 8px !important;
+  border: 1px solid rgba(205,255,56,.26) !important;
+  background: rgba(4,7,12,.55);
+}
+
+.agent-nav-logo img { width: 58px; height: 58px; border-radius: 11px; object-fit: cover; }
+.agent-nav-logo span,.agent-nav-logo strong,.agent-nav-logo small { display: block; }
+.agent-nav-logo strong { color: #dcff55; font-size: 15px; letter-spacing: .12em; }
+.agent-nav-logo small { margin-top: 3px; color: #a5afbd; font-size: 8px; letter-spacing: .18em; }
 
 @media (max-width: 480px) { .landing-nav-actions { gap: 6px; }.landing-nav-link { padding: 9px 13px; }.theme-toggle-compact { width: 38px; min-height: 38px; } }

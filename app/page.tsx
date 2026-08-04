@@ -339,9 +339,9 @@ export default function DashboardPage() {
 
       <aside className={`dashboard-sidebar ${menuOpen ? "open" : ""}`}>
         <div className="dashboard-brand">
-          <span aria-hidden="true">🏠</span>
+          <Image className="dashboard-brand-logo" src="/vie-logo.png" alt="Logo Vie AI Agent" width={78} height={78} priority />
           <div>
-            <strong>Mój Agent</strong>
+            <strong>Vie AI Agent</strong>
             <small>panel pracy</small>
           </div>
         </div>

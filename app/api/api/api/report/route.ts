@@ -1,11 +1,4 @@
 import { google } from "@ai-sdk/google";
-import {
-  assertDailyTokenBudget,
-  estimateTextTokens,
-  logApiUsage,
-} from "../../../lib/api-usage";
-import { getAuthenticatedUser } from "../../../lib/supabase";
-import { withResponseLanguage } from "../../../lib/language";
 import { jsonSchema, stepCountIs, streamText, tool } from "ai";
 
 export const maxDuration = 60;
@@ -248,7 +241,6 @@ function localReport(topic: string) {
 }
 
 export async function POST(request: Request) {
-  const user = await getAuthenticatedUser(request);
   const body = (await request.json().catch(() => null)) as { topic?: unknown } | null;
   const topic = typeof body?.topic === "string" ? body.topic.trim() : "";
 
@@ -257,28 +249,15 @@ export async function POST(request: Request) {
   }
 
   try {
-    const tokenBudget = await assertDailyTokenBudget(user);
-
-    if (!tokenBudget.ok) {
-      return new Response(tokenBudget.message, {
-        status: 429,
-        headers: {
-          "content-type": "text/plain; charset=utf-8",
-        },
-      });
-    }
-
-    const prompt = [
-      `Temat raportu: ${topic}`,
-      `Dzisiejsza data: ${new Date().toLocaleDateString("pl-PL")}`,
-      "",
-      "Przygotuj kompletny raport biznesowy zgodnie z formatem z system promptu.",
-    ].join("\n");
-
     const result = streamText({
       model: google("gemini-3.1-flash-lite"),
-      system: withResponseLanguage(request, systemPrompt),
-      prompt,
+      system: systemPrompt,
+      prompt: [
+        `Temat raportu: ${topic}`,
+        `Dzisiejsza data: ${new Date().toLocaleDateString("pl-PL")}`,
+        "",
+        "Przygotuj kompletny raport biznesowy zgodnie z formatem z system promptu.",
+      ].join("\n"),
       tools: {
         ...useSearchGrounding(),
         searchWikipedia: tool({
@@ -320,15 +299,6 @@ export async function POST(request: Request) {
         }),
       },
       stopWhen: stepCountIs(maxSteps),
-      onFinish: async ({ usage }) => {
-        await logApiUsage({
-          userId: user.id,
-          usage,
-          inputEstimate: estimateTextTokens(`${systemPrompt}\n${prompt}`),
-          model: "gemini-3.1-flash-lite",
-          endpoint: "/api/report",
-        });
-      },
     });
 
     return result.toTextStreamResponse();

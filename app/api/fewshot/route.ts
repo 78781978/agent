@@ -6,6 +6,7 @@ import {
   logApiUsage,
 } from "../../../lib/api-usage";
 import { getAuthenticatedUser } from "../../../lib/supabase";
+import { withResponseLanguage } from "../../../lib/language";
 
 export const maxDuration = 30;
 const maxSteps = 3;
@@ -69,7 +70,7 @@ export async function POST(request: Request) {
 
   const result = streamText({
     model: google("gemini-3.1-flash-lite"),
-    system: fewShotPrompt,
+    system: withResponseLanguage(request, fewShotPrompt),
     messages: await convertToModelMessages(messages),
     stopWhen: stepCountIs(maxSteps),
     onFinish: async ({ usage }) => {

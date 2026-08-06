@@ -19,6 +19,7 @@ import {
 } from "../../../lib/security";
 import { recordUserSecurityEvent } from "../../../lib/security-events";
 import { getAuthenticatedUser } from "../../../lib/supabase";
+import { withResponseLanguage } from "../../../lib/language";
 import {
   convertToModelMessages,
   createUIMessageStream,
@@ -2003,7 +2004,7 @@ export async function POST(request: Request) {
     experimental_transform: outputFilterTransform(() =>
       recordUserSecurityEvent(user.id, "filtered_output"),
     ),
-    system: `${prompts[selectedMode]}${internetRules}${knowledgeRules}${securityPrompt}`,
+    system: withResponseLanguage(request, `${prompts[selectedMode]}${internetRules}${knowledgeRules}${securityPrompt}`),
     messages: await convertToModelMessages(safeMessages),
     stopWhen: stepCountIs(maxSteps),
     onFinish: async ({ usage }) => {

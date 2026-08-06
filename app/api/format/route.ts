@@ -7,6 +7,7 @@ import {
   logApiUsage,
 } from "../../../lib/api-usage";
 import { getAuthenticatedUser } from "../../../lib/supabase";
+import { withResponseLanguage } from "../../../lib/language";
 
 export const maxDuration = 30;
 
@@ -190,7 +191,7 @@ export async function POST(request: Request) {
 
     const result = await generateText({
       model: google("gemini-3.1-flash-lite"),
-      system: formatPrompt,
+      system: withResponseLanguage(request, formatPrompt),
       messages: await convertToModelMessages(messages),
     });
 

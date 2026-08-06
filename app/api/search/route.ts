@@ -6,6 +6,7 @@ import {
   logApiUsage,
 } from "../../../lib/api-usage";
 import { getAuthenticatedUser } from "../../../lib/supabase";
+import { withResponseLanguage } from "../../../lib/language";
 
 type SearchSource = {
   title: string;
@@ -261,19 +262,19 @@ function extractGroundedSources(result: unknown): SearchSource[] {
   ).slice(0, 6);
 }
 
-async function buildGroundedAnswer(query: string, userId: string) {
+async function buildGroundedAnswer(query: string, userId: string, request: Request) {
   const result = await generateText({
     model: google("gemini-3.1-flash-lite"),
     tools: {
       googleSearch: google.tools.googleSearch({}),
     },
-    system: [
+    system: withResponseLanguage(request, [
       "Odpowiadasz po polsku, jasno i konkretnie.",
       "Najpierw szukasz polskich źródeł. Jeśli ich nie ma, możesz użyć zagranicznych.",
       "Nie zwracaj samego linku do Google. Przygotuj gotową odpowiedź w formie krótkiego artykułu lub praktycznego podsumowania.",
       "Jeżeli pytanie wymaga miasta, konkretnej firmy lub linku, dopytaj o brakującą informację zamiast zmyślać.",
       "Nie pokazuj technicznych kroków wykonywania narzędzi użytkownikowi.",
-    ].join("\n"),
+    ].join("\n")),
     prompt: [
       `Pytanie użytkownika: ${query}`,
       "",
@@ -382,7 +383,7 @@ export async function POST(request: Request) {
         return Response.json({ text: tokenBudget.message, sources: [] }, { status: 429 });
       }
 
-      const grounded = await buildGroundedAnswer(query, user.id);
+      const grounded = await buildGroundedAnswer(query, user.id, request);
 
       return Response.json({
         text: grounded.text,

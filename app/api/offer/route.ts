@@ -5,6 +5,7 @@ import {
   logApiUsage,
 } from "../../../lib/api-usage";
 import { getAuthenticatedUser } from "../../../lib/supabase";
+import { withResponseLanguage } from "../../../lib/language";
 import { generateText, jsonSchema, stepCountIs, tool } from "ai";
 
 export const maxDuration = 60;
@@ -283,7 +284,7 @@ export async function POST(request: Request) {
 
     const result = await generateText({
       model: google("gemini-3.1-flash-lite"),
-      system: systemPrompt,
+      system: withResponseLanguage(request, systemPrompt),
       prompt: [
         `Opis klienta i potrzeby: ${brief}`,
         `Dzisiejsza data: ${new Date().toLocaleDateString("pl-PL")}`,

@@ -6,6 +6,7 @@ import {
 } from "../../../lib/api-usage";
 import { searchKnowledge } from "../../../lib/knowledge";
 import { getAuthenticatedUser } from "../../../lib/supabase";
+import { withResponseLanguage } from "../../../lib/language";
 import {
   convertToModelMessages,
   createUIMessageStream,
@@ -1521,7 +1522,7 @@ export async function POST(request: Request) {
 
   const result = streamText({
     model: google("gemini-3.1-flash-lite"),
-    system: systemPrompt,
+    system: withResponseLanguage(request, systemPrompt),
     messages: await convertToModelMessages(messages),
     stopWhen: stepCountIs(maxSteps),
     onFinish: async ({ usage }) => {

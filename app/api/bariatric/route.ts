@@ -5,6 +5,7 @@ import {
   logApiUsage,
 } from "../../../lib/api-usage";
 import { getAuthenticatedUser } from "../../../lib/supabase";
+import { withResponseLanguage } from "../../../lib/language";
 import { generateText, stepCountIs } from "ai";
 
 export const maxDuration = 60;
@@ -446,7 +447,7 @@ export async function POST(request: Request) {
 
     const result = await generateText({
       model: google("gemini-3.1-flash-lite"),
-      system: `${systemPrompt}\n\n${sourceNotes}\n\n${knowledgeRules}`,
+      system: withResponseLanguage(request, `${systemPrompt}\n\n${sourceNotes}\n\n${knowledgeRules}`),
       prompt: [
         `Etap pacjenta: ${stage}`,
         `Cel wsparcia: ${goal}`,

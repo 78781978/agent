@@ -1,5 +1,6 @@
 import { google } from "@ai-sdk/google";
 import { streamText } from "ai";
+import { withResponseLanguage } from "../../lib/language";
 
 export const maxDuration = 30;
 
@@ -120,7 +121,7 @@ export async function POST(request: Request) {
   try {
     const result = streamText({
       model: google("gemini-3.1-flash-lite"),
-      system: systemPrompt,
+      system: withResponseLanguage(request, systemPrompt),
       prompt: emails.map((email, index) => `MAIL ${index + 1}\n${email}`).join("\n\n---\n\n"),
     });
 

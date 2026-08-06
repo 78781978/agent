@@ -5,6 +5,7 @@ import {
   logApiUsage,
 } from "../../../lib/api-usage";
 import { getAuthenticatedUser } from "../../../lib/supabase";
+import { withResponseLanguage } from "../../../lib/language";
 import { streamText } from "ai";
 
 export const maxDuration = 30;
@@ -144,7 +145,7 @@ export async function POST(request: Request) {
     const prompt = emails.map((email, index) => `MAIL ${index + 1}\n${email}`).join("\n\n---\n\n");
     const result = streamText({
       model: google("gemini-3.1-flash-lite"),
-      system: systemPrompt,
+      system: withResponseLanguage(request, systemPrompt),
       prompt,
       onFinish: async ({ usage }) => {
         await logApiUsage({

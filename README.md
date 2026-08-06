@@ -56,3 +56,4 @@ Przed wdrozeniem sprawdz projekt:
 npm run vercel:env-check
 npm run build
 ```
+Aktualizacja wdrożenia

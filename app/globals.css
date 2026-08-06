@@ -3437,4 +3437,126 @@ body > * {
 .agent-nav-logo strong { color: #dcff55; font-size: 15px; letter-spacing: .12em; }
 .agent-nav-logo small { margin-top: 3px; color: #a5afbd; font-size: 8px; letter-spacing: .18em; }
 
+/* Pełny kontrast jasnego motywu — desktop i mobile */
+[data-theme="light"] :is(
+  .chat-card,
+  .history-shell,
+  .dashboard-main,
+  .usage-dashboard-main,
+  .login-card,
+  .landing-shell
+) {
+  color: #172014;
+}
+
+[data-theme="light"] :is(
+  .security-card,
+  .hero-card,
+  .memory-panel,
+  .email-input-panel,
+  .email-results-panel,
+  .triage-card,
+  .tools-panel,
+  .generator-panel,
+  .image-card,
+  .info-card,
+  .services-panel,
+  .diagnostics-panel,
+  .travel-card,
+  .travel-budget-panel,
+  .travel-hotel-panel,
+  .travel-data-card,
+  .history-card,
+  .history-empty
+) {
+  border-color: rgba(25, 40, 20, .16);
+  background: rgba(255, 255, 255, .9);
+  box-shadow: 0 16px 45px rgba(25, 42, 20, .08);
+  color: #172014;
+}
+
+[data-theme="light"] :is(
+  .chat-card,
+  .history-shell,
+  .dashboard-main,
+  .usage-dashboard-main,
+  .login-card,
+  .security-card,
+  .hero-card,
+  .memory-panel,
+  .email-input-panel,
+  .email-results-panel,
+  .triage-card,
+  .tools-panel,
+  .generator-panel,
+  .image-card,
+  .info-card,
+  .services-panel,
+  .diagnostics-panel,
+  .travel-card,
+  .travel-budget-panel,
+  .travel-hotel-panel,
+  .travel-data-card,
+  .history-card
+) :is(h1, h2, h3, h4, p, span, small, strong, label, legend, dt, dd, li, blockquote) {
+  color: #263322;
+}
+
+[data-theme="light"] :is(
+  .dashboard-muted,
+  .dashboard-card-head p,
+  .history-meta,
+  .history-preview,
+  .history-header p,
+  .usage-header > div > span,
+  .usage-metric p,
+  .usage-metric > small,
+  .usage-panel header p,
+  .landing-lead
+) {
+  color: #52604e !important;
+}
+
+[data-theme="light"] .top-nav a:not(.agent-nav-logo) {
+  border-color: rgba(25, 40, 20, .16);
+  background: rgba(255, 255, 255, .86);
+  color: #253120;
+}
+
+[data-theme="light"] .top-nav a:not(.agent-nav-logo):hover,
+[data-theme="light"] .top-nav a:not(.agent-nav-logo).active {
+  border-color: #527800;
+  background: #e2efc8;
+  color: #294600;
+}
+
+[data-theme="light"] .agent-nav-logo {
+  border-color: rgba(54,89,0,.25) !important;
+  background: rgba(12, 20, 9, .9);
+}
+[data-theme="light"] .agent-nav-logo strong { color: #dfff62 !important; }
+[data-theme="light"] .agent-nav-logo small { color: #d4dccb !important; }
+
+[data-theme="light"] :is(input, textarea, select, .history-search) {
+  border-color: rgba(25, 40, 20, .2);
+  background: #ffffff;
+  color: #172014;
+}
+
+[data-theme="light"] :is(input, textarea)::placeholder { color: #6b7867; opacity: 1; }
+[data-theme="light"] .history-message.assistant > div { border-color: #ccd5c7; background: #fff; color: #172014; }
+[data-theme="light"] .history-message.user > div { border-color: #255f96; background: #246aa6; color: #fff; }
+[data-theme="light"] .history-message.user :is(p, small, span, strong) { color: #fff !important; }
+
+@media (max-width: 640px) {
+  [data-theme="light"] .chat-shell { padding: 12px; }
+  [data-theme="light"] .chat-card { min-height: calc(100vh - 24px); gap: 12px; }
+  [data-theme="light"] .top-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+  [data-theme="light"] .top-nav > * { min-width: 0; width: 100%; }
+  [data-theme="light"] .top-nav .agent-nav-logo { grid-column: 1 / -1; }
+  [data-theme="light"] .top-nav a:not(.agent-nav-logo) { min-height: 42px; padding-inline: 8px; white-space: normal; text-align: center; }
+  [data-theme="light"] :is(.hero-card, .memory-panel, .tools-panel, .generator-panel, .travel-card, .travel-budget-panel, .travel-hotel-panel) { padding: 16px; }
+  [data-theme="light"] :is(h1, h2) { overflow-wrap: anywhere; }
+}
+
 @media (max-width: 480px) { .landing-nav-actions { gap: 6px; }.landing-nav-link { padding: 9px 13px; }.theme-toggle-compact { width: 38px; min-height: 38px; } }

@@ -1,5 +1,6 @@
 import "./globals.css";
 import { AuthGate } from "../components/AuthGate";
+import { LanguageProvider } from "../components/LanguageProvider";
 
 export const metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
@@ -57,7 +58,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body>
-        <AuthGate>{children}</AuthGate>
+        <LanguageProvider><AuthGate>{children}</AuthGate></LanguageProvider>
       </body>
     </html>
   );

@@ -217,7 +217,7 @@ function LandingPage() {
       </section>
 
       <section className="landing-features" aria-labelledby="features-title">
-        <div className="landing-section-heading"><p>WIĘCEJ NIŻ CHATBOT</p><h2 id="features-title">Twoja wiedza. Twój kontekst.<br /><span>Twój agent.</span></h2></div>
+        <div className="landing-section-heading"><p>WIĘCEJ NIŻ CHATBOT</p><h2 id="features-title">Twoja wiedza. Twój kontekst.<br /><span className="landing-agent-line">Twój agent.</span></h2></div>
         <div className="landing-feature-grid">
           {landingFeatures.map((feature, index) => (
             <article key={feature.title} style={{ "--delay": `${index * 80}ms` } as React.CSSProperties}>
@@ -248,7 +248,7 @@ function LandingPage() {
         <Link className="landing-primary" href="/login">Stwórz konto <b>→</b></Link>
       </section>
 
-      <footer className="landing-footer"><Link className="landing-brand" href="/"><Image className="landing-brand-logo" src="/vie-logo.png" alt="" width={52} height={52} /><strong>Vie AI</strong></Link><p>Twój biznes. Twoja wiedza. Twój agent.</p><small>© 2026 Vie AI</small></footer>
+      <footer className="landing-footer"><Link className="landing-brand" href="/"><Image className="landing-brand-logo" src="/vie-logo.png" alt="" width={52} height={52} /><strong>Vie AI</strong></Link><div className="landing-footer-center"><p>Twój biznes. Twoja wiedza. Twój agent.</p><nav aria-label="Dokumenty prawne"><Link href="/regulamin">Regulamin</Link><Link href="/polityka-prywatnosci">Prywatność</Link><Link href="/polityka-cookies">Cookies</Link></nav></div><small>© 2026 Vie AI</small></footer>
     </main>
   );
 }

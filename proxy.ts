@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-const publicPaths = ["/", "/login"];
+const publicPaths = ["/", "/login", "/regulamin", "/polityka-prywatnosci", "/polityka-cookies"];
 const publicAssetPattern = /\.(?:png|jpe?g|webp|gif|svg|ico|json)$/i;
 
 export function proxy(request: NextRequest) {

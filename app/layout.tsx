@@ -1,65 +1,22 @@
-import "./globals.css";
-import { AuthGate } from "../components/AuthGate";
-import { LanguageProvider } from "../components/LanguageProvider";
+import Link from "next/link";
 
-export const metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
-  title: "Vie AI — Twój osobisty agent",
-  description: "Prywatny asystent AI, który zna Twoje dokumenty i pamięta rozmowy.",
-  applicationName: "Vie AI",
-  alternates: { canonical: "/" },
-  manifest: "/manifest.json",
-  icons: {
-    icon: [{ url: "/favicon.ico", sizes: "32x32" }, { url: "/icon.png", sizes: "512x512", type: "image/png" }],
-    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
-  },
-  openGraph: {
-    type: "website",
-    locale: "pl_PL",
-    title: "Vie AI — Twój osobisty agent",
-    description: "Agent AI z bazą wiedzy, pamięcią i automatyzacją.",
-    siteName: "Vie AI",
-    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Vie AI — Twój biznes. Twoja wiedza. Twój agent." }],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Vie AI — Twój osobisty agent",
-    description: "Agent AI z bazą wiedzy, pamięcią i automatyzacją.",
-    images: ["/og-image.png"],
-  },
-};
+export const metadata = { title: "Polityka cookies | Vie AI" };
 
-export const viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#07090d" },
-    { media: "(prefers-color-scheme: light)", color: "#f5f7f1" },
-  ],
-};
-
-const themeScript = `
-  try {
-    const saved = localStorage.getItem('vie-theme');
-    const theme = saved === 'light' || saved === 'dark' ? saved : 'dark';
-    document.documentElement.dataset.theme = theme;
-    document.documentElement.style.colorScheme = theme;
-  } catch (_) {
-    document.documentElement.dataset.theme = 'dark';
-  }
-`;
-
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function CookiesPage() {
   return (
-    <html lang="pl" data-theme="dark" suppressHydrationWarning>
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-      </head>
-      <body>
-        <LanguageProvider><AuthGate>{children}</AuthGate></LanguageProvider>
-      </body>
-    </html>
+    <main className="legal-shell">
+      <article className="legal-card">
+        <Link className="legal-back" href="/">← Wróć do Vie AI</Link>
+        <p className="legal-eyebrow">DOKUMENTY PRAWNE</p>
+        <h1>Polityka plików cookies</h1>
+        <p className="legal-updated">Obowiązuje od 6 sierpnia 2026 r.</p>
+        <section><h2>1. Czym są cookies</h2><p>Cookies to niewielkie informacje zapisywane w przeglądarce. Vie AI wykorzystuje również podobne mechanizmy pamięci lokalnej, które pomagają zachować ustawienia aplikacji.</p></section>
+        <section><h2>2. Niezbędne mechanizmy</h2><p>Serwis używa niezbędnych danych sesyjnych do logowania, ochrony konta, utrzymania sesji i prawidłowego działania funkcji. Bez nich korzystanie z panelu użytkownika może być niemożliwe.</p></section>
+        <section><h2>3. Ustawienia interfejsu</h2><p>W pamięci przeglądarki może być zapisany wybrany motyw jasny lub ciemny oraz inne ustawienia poprawiające wygodę korzystania z aplikacji.</p></section>
+        <section><h2>4. Analityka i marketing</h2><p>Jeżeli w przyszłości zostaną włączone opcjonalne narzędzia analityczne lub marketingowe, będą uruchamiane zgodnie z wymaganiami prawa, po uzyskaniu zgody, gdy jest ona wymagana.</p></section>
+        <section><h2>5. Zarządzanie cookies</h2><p>Cookies można usuwać i blokować w ustawieniach przeglądarki. Zablokowanie mechanizmów niezbędnych może spowodować wylogowanie lub brak dostępu do części funkcji.</p></section>
+        <section><h2>6. Zmiany polityki</h2><p>Polityka może być aktualizowana wraz ze zmianą funkcji serwisu lub przepisów. Aktualna wersja jest zawsze publikowana na tej stronie.</p></section>
+      </article>
+    </main>
   );
 }

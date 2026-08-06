@@ -50,7 +50,7 @@ export default function LoginPage() {
     <main className="login-shell">
       <section className="login-card">
         <div>
-          <p className="eyebrow">Supabase Auth</p>
+          <p className="eyebrow">Logowanie Supabase</p>
           <h1>{mode === "login" ? "Zaloguj się" : "Utwórz konto"}</h1>
           <p className="subtitle">
             Po zalogowaniu zobaczysz tylko swoje rozmowy, dokumenty i profil.
@@ -59,7 +59,7 @@ export default function LoginPage() {
 
         <form className="login-form" onSubmit={handleSubmit}>
           <label>
-            <span>Email</span>
+            <span>E-mail</span>
             <input
               autoComplete="email"
               inputMode="email"
